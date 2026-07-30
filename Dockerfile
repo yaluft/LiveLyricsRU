@@ -22,17 +22,7 @@ COPY . .
 # Build server + client
 RUN npm run build
 
-# ── Production stage ──────────────────────────────────────
-FROM node:20-slim AS runtime
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip ca-certificates \
-    && pip3 install --no-cache-dir yt-dlp \
-    && apt-get clean 
-
-WORKDIR /app
-
-# Copy only production artifacts
 COPY --from=builder /app/server/dist ./server/dist
 COPY --from=builder /app/server/package.json ./server/
 COPY --from=builder /app/client/dist ./client/dist
