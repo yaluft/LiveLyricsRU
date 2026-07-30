@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    # Optional: mount a cache volume so yt-dlp cookies/cache persist
+    volumes:
+      - ytdlp_cache:/root/.cache/yt-dlp
+
+volumes:
+  ytdlp_cache:
