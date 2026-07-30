@@ -4,7 +4,7 @@ FROM node:20-slim AS builder
 # Install yt-dlp dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip curl ca-certificates \
-    && pip install --no-cache-dir yt-dlp \
+    && pip install --no-cache-dir yt-dlp --break-system-packages \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
