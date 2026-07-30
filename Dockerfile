@@ -1,10 +1,12 @@
 # ── Build stage ──────────────────────────────────────────
 FROM node:20-slim AS builder
 
-# Install yt-dlp build deps
+# Install yt-dlp build deps and create a venv for pip installs
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip curl ca-certificates build-essential \
-    && pip3 install --no-cache-dir yt-dlp \
+    python3 python3-venv curl ca-certificates build-essential \
+    && python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir yt-dlp \
+    && ln -s /opt/venv/bin/yt-dlp /usr/local/bin/yt-dlp \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -24,8 +26,10 @@ RUN npm run build
 FROM node:20-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip ca-certificates \
-    && pip3 install --no-cache-dir yt-dlp \
+    python3 python3-venv ca-certificates \
+    && python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir yt-dlp \
+    && ln -s /opt/venv/bin/yt-dlp /usr/local/bin/yt-dlp \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
