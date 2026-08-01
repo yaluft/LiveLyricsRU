@@ -8,3 +8,4 @@ dist/
 *.tsbuildinfo
 *.tar.gz
 *.bundle
+.claude/settings.local.json*
