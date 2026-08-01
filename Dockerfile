@@ -8,7 +8,6 @@ COPY package.json package-lock.json ./
 COPY shared/ shared/
 COPY server/ server/
 COPY client/ client/
-COPY tsconfig.json ./
 RUN npm ci
 
 COPY . .
