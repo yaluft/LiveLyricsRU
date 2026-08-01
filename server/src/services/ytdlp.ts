@@ -28,11 +28,19 @@ export class ResolveFailed extends Error {
 
 let availability: Promise<boolean> | null = null;
 
+function buildArgs(baseArgs: string[]): string[] {
+  const args = [...baseArgs];
+  // Use cookies.txt if it exists in the app data directory
+  args.push('--cookies-from-browser', 'firefox');
+  args.push('--cookies', '/app/cookies.txt');
+  return args;
+}
+
 function run(args: string[]): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     execFile(
       config.ytDlpPath,
-      args,
+      buildArgs(args),
       {
         timeout: config.ytDlpTimeoutMs,
         maxBuffer: MAX_OUTPUT_BYTES,
