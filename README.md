@@ -175,10 +175,12 @@ git clone https://github.com/yaluft/LiveLyricsRU.git
 cd LiveLyricsRU
 
 npm install
-npm run build -w @lyrika/shared   # the client and server both import it
-
 npm run dev
 ```
+
+`npm install` builds `@lyrika/shared` via its `prepare` script, and `npm run dev`
+rebuilds it before starting — the client and server both import it, so it has to
+exist first. `shared` also runs in watch mode alongside them.
 
 | | |
 | --- | --- |

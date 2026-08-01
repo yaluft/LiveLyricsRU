@@ -13,7 +13,10 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "//": "npm runs `prepare` for workspace packages on install, so dist/ exists before anything imports it",
+    "prepare": "tsc -p tsconfig.json"
   },
   "devDependencies": {
     "typescript": "^5.7.3"
