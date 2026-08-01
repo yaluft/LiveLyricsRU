@@ -105,7 +105,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     set({ pendingTrackId: track.id, status: 'loading', error: null });
 
     try {
-      const { track: resolved, stream } = await api.resolve({ trackId: track.id });
+      const { track: resolved, stream } = await api.resolve({ trackId: track.id, track });
       const finalTrack = { ...track, ...resolved, id: track.id };
 
       if (stream.provider === 'demo' || !stream.url) {

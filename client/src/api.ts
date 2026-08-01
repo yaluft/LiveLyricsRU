@@ -54,7 +54,7 @@ export const api = {
   search: (query: string) =>
     request<SearchResponse>(`/api/search?q=${encodeURIComponent(query)}`),
 
-  resolve: (payload: { trackId?: string; url?: string }) =>
+  resolve: (payload: { trackId?: string; url?: string; track?: Track }) =>
     request<{ track: Track; stream: ResolvedStream }>('/api/resolve', {
       method: 'POST',
       body: JSON.stringify(payload),

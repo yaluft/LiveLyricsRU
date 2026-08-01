@@ -7,6 +7,7 @@ import type {
   SavedLine,
   SavedWord,
   SearchResponse,
+  StreamProvider,
   Track,
 } from '@lyrika/shared';
 import { CATALOG, demoLyrics, findTrack, searchCatalog } from '../data/catalog.js';
@@ -40,6 +41,49 @@ function asString(value: unknown, fallback = ''): string {
 
 function asNumber(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+const RESOLVABLE: StreamProvider[] = ['youtube', 'vk', 'spotify', 'demo'];
+
+function isResolvable(value: string): value is StreamProvider {
+  return (RESOLVABLE as string[]).includes(value);
+}
+
+/** The track the client is holding, when it is not one of ours. */
+function trackFromBody(body: Record<string, unknown>): Track | null {
+  const raw = body.track;
+  if (!raw || typeof raw !== 'object') return null;
+  const t = raw as Record<string, unknown>;
+  const provider = asString(t.provider);
+  const providerId = asString(t.providerId);
+  if (!providerId || !isResolvable(provider)) return null;
+  return {
+    id: asString(t.id, `${provider}:${providerId}`),
+    title: asString(t.title, 'Без названия'),
+    artist: asString(t.artist),
+    durationSec: asNumber(t.durationSec),
+    provider,
+    providerId,
+    hasSyncedLyrics: t.hasSyncedLyrics === true,
+  };
+}
+
+/** Last resort: ids are minted as `provider:providerId`, so parse one back. */
+function trackFromId(trackId: string): Track | null {
+  const separator = trackId.indexOf(':');
+  if (separator <= 0) return null;
+  const provider = trackId.slice(0, separator);
+  const providerId = trackId.slice(separator + 1);
+  if (!providerId || !isResolvable(provider)) return null;
+  return {
+    id: trackId,
+    title: 'Без названия',
+    artist: '',
+    durationSec: 0,
+    provider,
+    providerId,
+    hasSyncedLyrics: false,
+  };
 }
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
@@ -97,7 +141,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         const { track, stream } = await resolveUrl(url);
         return { track, stream };
       }
-      const track = findTrack(trackId);
+      // Search results come from yt-dlp, not the demo catalogue, so a catalogue
+      // miss is normal — fall back to the track the client sent, then to the
+      // `provider:providerId` encoded in the id itself.
+      const track = findTrack(trackId) ?? trackFromBody(body) ?? trackFromId(trackId);
       if (!track) {
         return reply.code(404).send({
           error: 'unknown_track',
