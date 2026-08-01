@@ -1,14 +1,26 @@
 {
-  "name": "lyrics-app",
-  "version": "0.1.0",
+  "name": "lyrika",
+  "version": "2.0.0",
   "private": true,
-  "workspaces": ["server", "client"],
+  "description": "Лирика — synced Russian lyrics with transliteration, translation and an ocean stage",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
-    "build": "npm run build --workspace=server && npm run build --workspace=client",
-    "start": "node server/dist/index.js"
+    "dev": "npm run build -w @lyrika/shared && concurrently -n shared,server,client -c yellow,cyan,magenta \"npm run dev -w @lyrika/shared\" \"npm run dev -w @lyrika/server\" \"npm run dev -w @lyrika/client\"",
+    "build": "npm run build -w @lyrika/shared && npm run build -w @lyrika/server && npm run build -w @lyrika/client",
+    "start": "npm run start -w @lyrika/server",
+    "typecheck": "npm run typecheck -w @lyrika/shared && npm run typecheck -w @lyrika/server && npm run typecheck -w @lyrika/client",
+    "test": "npm run test -w @lyrika/server",
+    "lint": "npm run typecheck"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
   }
 }
