@@ -5,9 +5,10 @@ FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-COPY shared/package.json shared/
-COPY server/package.json server/
-COPY client/package.json client/
+COPY shared/ shared/
+COPY server/ server/
+COPY client/ client/
+COPY tsconfig.json ./
 RUN npm ci
 
 COPY . .
