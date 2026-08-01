@@ -55,7 +55,6 @@ export class PlaybackEngine {
     this.#virtualDuration = durationSec;
 
     const audio = new Audio();
-    audio.crossOrigin = 'anonymous';
     audio.preload = 'auto';
     audio.src = url;
     audio.volume = this.#volume;

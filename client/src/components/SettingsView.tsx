@@ -14,6 +14,7 @@ const PRESET_LABEL = {
 
 const SOURCE_LABEL = {
   lrclib: 'sourceLrclib',
+  netease: 'sourceNetease',
   genius: 'sourceGenius',
   custom: 'sourceCustom',
   ai: 'aiSection',
@@ -21,6 +22,7 @@ const SOURCE_LABEL = {
 
 const SOURCE_NOTE: Record<LyricSourceId, 'sourceSynced' | 'sourceUntimed' | 'sourceUnset'> = {
   lrclib: 'sourceSynced',
+  netease: 'sourceSynced',
   genius: 'sourceUntimed',
   custom: 'sourceUnset',
   ai: 'sourceUntimed',

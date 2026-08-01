@@ -125,6 +125,41 @@ export async function searchTracks(query: string, limit = 8): Promise<Track[]> {
     .filter((t): t is Track => t !== null);
 }
 
+async function resolveViaYtDlp(
+  url: string,
+  provider: StreamProvider,
+): Promise<{ track: Track; stream: ResolvedStream }> {
+  if (!(await ytDlpAvailable())) throw new YtDlpUnavailable();
+
+  const stdout = await run([
+    '--dump-json',
+    '--no-warnings',
+    '--no-playlist',
+    '-f',
+    'bestaudio[ext=m4a]/bestaudio/best',
+    '--',
+    url,
+  ]);
+  const entry = parseJsonLines(stdout)[0];
+  if (!entry?.url) {
+    throw new ResolveFailed('Не удалось получить поток', 'Попробуйте другую ссылку.');
+  }
+  const track = toTrack(entry, provider);
+  if (!track) throw new ResolveFailed('Ответ без идентификатора трека', 'Попробуйте ещё раз.');
+
+  return {
+    track,
+    stream: {
+      trackId: track.id,
+      url: entry.url,
+      mimeType: entry.ext === 'm4a' ? 'audio/mp4' : 'audio/webm',
+      bitrateKbps: Math.round(entry.abr ?? 128),
+      provider,
+      expiresAt: null,
+    },
+  };
+}
+
 export async function resolveUrl(rawUrl: string): Promise<{ track: Track; stream: ResolvedStream }> {
   const check = checkMediaUrl(rawUrl);
   if (!check.ok) {
@@ -136,52 +171,37 @@ export async function resolveUrl(rawUrl: string): Promise<{ track: Track; stream
       'Попробуйте вариант с YouTube.',
     );
   }
-  if (!(await ytDlpAvailable())) throw new YtDlpUnavailable();
+  return resolveViaYtDlp(check.url, check.provider);
+}
 
-  const stdout = await run([
-    '--dump-json',
-    '--no-warnings',
-    '--no-playlist',
-    '-f',
-    'bestaudio[ext=m4a]/bestaudio/best',
-    '--',
-    check.url,
-  ]);
-  const entry = parseJsonLines(stdout)[0];
-  if (!entry?.url) {
-    throw new ResolveFailed('Не удалось получить поток', 'Попробуйте другую ссылку.');
-  }
-  const track = toTrack(entry, check.provider);
-  if (!track) throw new ResolveFailed('Ответ без идентификатора трека', 'Попробуйте ещё раз.');
-
-  return {
-    track,
-    stream: {
-      trackId: track.id,
-      url: entry.url,
-      mimeType: entry.ext === 'm4a' ? 'audio/mp4' : 'audio/webm',
-      bitrateKbps: Math.round(entry.abr ?? 128),
-      provider: check.provider,
-      expiresAt: null,
-    },
-  };
+/** Loose sanity gate so a demo track doesn't silently resolve to an unrelated cover. */
+function looksLikeMatch(candidate: Track, wanted: Track): boolean {
+  const durationOk =
+    wanted.durationSec === 0 || Math.abs(candidate.durationSec - wanted.durationSec) <= 15;
+  const titleOk = candidate.title
+    .toLowerCase()
+    .includes(wanted.title.toLowerCase().slice(0, 8));
+  return durationOk && titleOk;
 }
 
 export async function resolveTrack(track: Track): Promise<ResolvedStream> {
   if (track.provider === 'demo') {
-    return {
-      trackId: track.id,
-      url: '',
-      mimeType: 'audio/none',
-      bitrateKbps: 0,
-      provider: 'demo',
-      expiresAt: null,
-    };
+    const query = `${track.artist} ${track.title}`.trim() || track.title;
+    const candidates = await searchTracks(query, 3);
+    const match = candidates.find((c) => looksLikeMatch(c, track)) ?? candidates[0];
+    if (!match) {
+      throw new ResolveFailed('Не нашли подходящее видео', 'Попробуйте другой трек.');
+    }
+    const url = `https://www.youtube.com/watch?v=${encodeURIComponent(match.providerId)}`;
+    const { stream } = await resolveViaYtDlp(url, 'youtube');
+    return { ...stream, trackId: track.id };
   }
   const url =
     track.provider === 'youtube'
       ? `https://www.youtube.com/watch?v=${encodeURIComponent(track.providerId)}`
-      : track.providerId;
+      : track.provider === 'vk'
+        ? `https://vk.com/video${encodeURIComponent(track.providerId)}`
+        : track.providerId;
   const { stream } = await resolveUrl(url);
   return { ...stream, trackId: track.id };
 }

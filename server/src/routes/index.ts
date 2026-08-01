@@ -1,9 +1,11 @@
+import { Readable } from 'node:stream';
 import type { FastifyInstance } from 'fastify';
 import type {
   AiLyricRequest,
   Clip,
   FeedResponse,
   Lyrics,
+  ResolvedStream,
   SavedLine,
   SavedWord,
   SearchResponse,
@@ -16,6 +18,7 @@ import { lookupWord } from '../data/dictionary.js';
 import { SEED_CLIPS } from '../data/feed.js';
 import { JsonStore } from '../lib/store.js';
 import { fetchLyrics } from '../services/lrclib.js';
+import { fetchLyrics as fetchNeteaseLyrics } from '../services/netease.js';
 import { draftLyrics } from '../services/ai.js';
 import {
   ResolveFailed,
@@ -26,6 +29,35 @@ import {
   ytDlpAvailable,
 } from '../services/ytdlp.js';
 import { looksLikeUrl } from '../services/urlGuard.js';
+
+/**
+ * yt-dlp hands back a direct googlevideo/VK CDN URL, but those are commonly
+ * bound to the IP that requested them and carry no CORS headers, so a browser
+ * fetching them straight from the client fails unpredictably. Every stream is
+ * proxied through this server instead: the client always gets a same-origin
+ * `/api/stream/:trackId` URL, and the real CDN URL is cached briefly here so
+ * repeat range requests (seeking) don't re-invoke yt-dlp each time.
+ */
+const STREAM_CACHE_TTL_MS = 5 * 60 * 1000;
+const STREAM_CACHE = new Map<string, { url: string; mimeType: string; expiresAt: number }>();
+// Coalesces concurrent range requests for the same cold trackId so a media
+// element's simultaneous buffering requests don't spawn duplicate yt-dlp runs.
+const STREAM_INFLIGHT = new Map<string, Promise<ResolvedStream>>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of STREAM_CACHE) {
+    if (entry.expiresAt < now) STREAM_CACHE.delete(key);
+  }
+}, STREAM_CACHE_TTL_MS).unref();
+
+function cacheStream(trackId: string, url: string, mimeType: string): void {
+  STREAM_CACHE.set(trackId, { url, mimeType, expiresAt: Date.now() + STREAM_CACHE_TTL_MS });
+}
+
+function proxyStreamUrl(trackId: string): string {
+  return `/api/stream/${encodeURIComponent(trackId)}`;
+}
 
 const words = new JsonStore<SavedWord[]>('vocabulary-words', []);
 const lines = new JsonStore<SavedLine[]>('vocabulary-lines', []);
@@ -99,7 +131,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
     if (looksLikeUrl(query)) {
       try {
-        const { track } = await resolveUrl(query);
+        const { track, stream } = await resolveUrl(query);
+        cacheStream(track.id, stream.url, stream.mimeType);
         return { query, results: [track], sampled: false };
       } catch (error) {
         if (error instanceof ResolveFailed) {
@@ -139,7 +172,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     try {
       if (url) {
         const { track, stream } = await resolveUrl(url);
-        return { track, stream };
+        cacheStream(track.id, stream.url, stream.mimeType);
+        return { track, stream: { ...stream, url: proxyStreamUrl(track.id) } };
       }
       // Search results come from yt-dlp, not the demo catalogue, so a catalogue
       // miss is normal — fall back to the track the client sent, then to the
@@ -153,7 +187,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         });
       }
       const stream = await resolveTrack(track);
-      return { track, stream };
+      cacheStream(track.id, stream.url, stream.mimeType);
+      return { track, stream: { ...stream, url: proxyStreamUrl(track.id) } };
     } catch (error) {
       if (error instanceof ResolveFailed) {
         return reply
@@ -174,6 +209,86 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         hint: 'Повторите попытку.',
       });
     }
+  });
+
+  app.get('/api/stream/:trackId', async (request, reply) => {
+    // Fastify's router already decodes route params; decoding again corrupts
+    // (or throws on) ids that contain a literal `%`.
+    const trackId = (request.params as { trackId: string }).trackId;
+
+    let cached = STREAM_CACHE.get(trackId);
+    if (!cached || cached.expiresAt < Date.now()) {
+      const track = findTrack(trackId) ?? trackFromId(trackId);
+      if (!track) {
+        return reply.code(404).send({ error: 'unknown_track', message: 'Трек не найден' });
+      }
+      try {
+        let pending = STREAM_INFLIGHT.get(trackId);
+        if (!pending) {
+          pending = resolveTrack(track).finally(() => STREAM_INFLIGHT.delete(trackId));
+          STREAM_INFLIGHT.set(trackId, pending);
+        }
+        const stream = await pending;
+        cacheStream(trackId, stream.url, stream.mimeType);
+        cached = STREAM_CACHE.get(trackId);
+      } catch (error) {
+        if (error instanceof ResolveFailed) {
+          return reply
+            .code(422)
+            .send({ error: 'resolve_failed', message: error.message, hint: error.hint });
+        }
+        if (error instanceof YtDlpUnavailable) {
+          return reply.code(503).send({
+            error: 'resolver_unavailable',
+            message: 'yt-dlp не установлен на сервере',
+          });
+        }
+        request.log.error({ err: error }, 'stream resolve failed');
+        return reply.code(502).send({ error: 'resolve_failed', message: 'Не удалось получить поток' });
+      }
+    }
+    if (!cached) {
+      return reply.code(502).send({ error: 'resolve_failed', message: 'Не удалось получить поток' });
+    }
+
+    const range = request.headers.range;
+    let upstream: Response;
+    try {
+      upstream = await fetch(cached.url, range ? { headers: { range } } : undefined);
+    } catch (error) {
+      request.log.error({ err: error }, 'stream upstream fetch failed');
+      return reply.code(502).send({ error: 'stream_failed', message: 'Источник недоступен' });
+    }
+
+    if (upstream.status === 416) {
+      // A genuinely out-of-range seek — the cached URL is still good, only
+      // this particular range is invalid, so don't evict it.
+      reply.code(416);
+      const contentRange = upstream.headers.get('content-range');
+      if (contentRange) reply.header('Content-Range', contentRange);
+      return reply.send();
+    }
+
+    if (!upstream.ok) {
+      // 403/404/410-style failures mean the CDN URL itself is stale
+      // (expired/IP-bound); drop it so the next request re-resolves via
+      // yt-dlp instead of repeating the same failure against a dead URL.
+      if ([403, 404, 410].includes(upstream.status)) {
+        STREAM_CACHE.delete(trackId);
+      }
+      request.log.warn({ status: upstream.status, trackId }, 'stream upstream returned non-ok');
+      return reply.code(502).send({ error: 'stream_failed', message: 'Источник недоступен' });
+    }
+
+    reply.code(upstream.status);
+    reply.header('Content-Type', cached.mimeType);
+    if (upstream.status === 206) reply.header('Accept-Ranges', 'bytes');
+    const contentRange = upstream.headers.get('content-range');
+    if (contentRange) reply.header('Content-Range', contentRange);
+    const contentLength = upstream.headers.get('content-length');
+    if (contentLength) reply.header('Content-Length', contentLength);
+
+    return reply.send(upstream.body ? Readable.fromWeb(upstream.body as never) : null);
   });
 
   app.get('/api/lyrics/:trackId', async (request, reply): Promise<Lyrics | void> => {
@@ -197,6 +312,13 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         if (remote) return remote;
       } catch (error) {
         request.log.warn({ err: error }, 'lrclib lookup failed');
+      }
+
+      try {
+        const netease = await fetchNeteaseLyrics(track);
+        if (netease) return netease;
+      } catch (error) {
+        request.log.warn({ err: error }, 'netease lookup failed');
       }
     }
 

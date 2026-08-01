@@ -28,7 +28,21 @@ async function getJson(path: string, params: Record<string, string>): Promise<un
   return res.json();
 }
 
+const CYRILLIC_RE = /[Ѐ-ӿ]/;
+
+function hasCyrillic(text: string): boolean {
+  return CYRILLIC_RE.test(text);
+}
+
+function scriptMismatch(hit: LrclibHit, track: Track): boolean {
+  const targetIsCyrillic = hasCyrillic(track.title) || hasCyrillic(track.artist);
+  if (!targetIsCyrillic) return false;
+  const lyricsText = hit.syncedLyrics || hit.plainLyrics || '';
+  return !hasCyrillic(lyricsText);
+}
+
 function toLyrics(hit: LrclibHit, track: Track): Lyrics | null {
+  if (scriptMismatch(hit, track)) return null;
   if (hit.syncedLyrics) {
     const lines = toLyricLines(parseLrc(hit.syncedLyrics), track.durationSec || hit.duration || 240);
     if (lines.length) {

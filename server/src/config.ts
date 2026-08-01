@@ -18,6 +18,9 @@ export const config = {
   ytDlpTimeoutMs: num(process.env.YT_DLP_TIMEOUT_MS, 20_000),
   lrclibBaseUrl: process.env.LRCLIB_BASE_URL ?? 'https://lrclib.net',
   lrclibTimeoutMs: num(process.env.LRCLIB_TIMEOUT_MS, 6_000),
+  /** Unofficial NetEase Cloud Music web API, used as a fallback lyrics source. */
+  neteaseBaseUrl: process.env.NETEASE_BASE_URL ?? 'https://music.163.com',
+  neteaseTimeoutMs: num(process.env.NETEASE_TIMEOUT_MS, 6_000),
   /** Serve the built client from the API process (single-container deploys). */
   serveClient: bool(process.env.SERVE_CLIENT, false),
   clientDir: resolve(process.env.CLIENT_DIR ?? '../client/dist'),
