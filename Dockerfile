@@ -1,50 +1,51 @@
-# ── Build stage ──────────────────────────────────────────
-FROM node:20-slim AS builder
+# syntax=docker/dockerfile:1
 
-# Install yt-dlp build deps and create a venv for pip installs
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-venv curl ca-certificates build-essential \
-    && python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir yt-dlp \
-    && ln -s /opt/venv/bin/yt-dlp /usr/local/bin/yt-dlp \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
+# ---------- build ----------
+FROM node:22-alpine AS build
 WORKDIR /app
 
-# Copy manifests for better layer caching
-COPY package.json package-lock.json* ./
-COPY server/package.json ./server/
-COPY client/package.json ./client/
-# Use npm ci for reproducible installs
+COPY package.json package-lock.json ./
+COPY shared/package.json shared/
+COPY server/package.json server/
+COPY client/package.json client/
 RUN npm ci
 
-# Copy source and build
 COPY . .
 RUN npm run build
 
-# ── Production stage ──────────────────────────────────────
-FROM node:20-slim AS runtime
+RUN npm prune --omit=dev
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-venv ca-certificates \
-    && python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir yt-dlp \
-    && ln -s /opt/venv/bin/yt-dlp /usr/local/bin/yt-dlp \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
+# ---------- runtime ----------
+FROM node:22-alpine AS runtime
 WORKDIR /app
-
-# Copy runtime artifacts from the builder
-COPY --from=builder /app/server/dist ./server/dist
-COPY --from=builder /app/client/dist ./client/dist
-COPY --from=builder /app/server/package.json ./server/
-
-# Install only production dependencies for the server
-RUN cd server && npm install --omit=dev --no-audit --no-fund
-
 ENV NODE_ENV=production
-ENV PORT=3001
 
-EXPOSE 3001
+# yt-dlp needs python + ffmpeg. Drop this layer and the app still runs — it
+# falls back to the demo catalogue and reports the resolver as unavailable.
+RUN apk add --no-cache python3 ffmpeg ca-certificates \
+  && wget -qO /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+  && chmod +x /usr/local/bin/yt-dlp
+
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/shared/dist ./shared/dist
+COPY --from=build /app/shared/package.json ./shared/
+COPY --from=build /app/server/dist ./server/dist
+COPY --from=build /app/server/package.json ./server/
+COPY --from=build /app/client/dist ./client/dist
+COPY --from=build /app/package.json ./
+
+ENV PORT=8787 \
+    HOST=0.0.0.0 \
+    SERVE_CLIENT=true \
+    CLIENT_DIR=/app/client/dist \
+    DATA_DIR=/app/.data \
+    YT_DLP_PATH=/usr/local/bin/yt-dlp
+
+RUN mkdir -p /app/.data && chown -R node:node /app/.data
+USER node
+
+EXPOSE 8787
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+  CMD node -e "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "server/dist/index.js"]

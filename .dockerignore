@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.data
+**/.data
+docs
+chats
+project
+*.log
+.env
+.env.*
+!.env.example
