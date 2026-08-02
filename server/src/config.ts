@@ -26,4 +26,6 @@ export const config = {
   clientDir: resolve(process.env.CLIENT_DIR ?? '../client/dist'),
   dataDir: resolve(process.env.DATA_DIR ?? './.data'),
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+  /** Shared stream-proxy cache backend. Unset falls back to a per-process in-memory cache. */
+  redisUrl: process.env.REDIS_URL || null,
 } as const;

@@ -7,11 +7,15 @@ services:
       SERVE_CLIENT: "true"
       CORS_ORIGIN: "*"
       LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
     volumes:
       - lyrika-data:/app/.data
       - ./cookies.txt:/app/cookies.txt:ro
     expose:
       - "8787"
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD
@@ -21,6 +25,19 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Pure re-derivable cache (yt-dlp can always re-resolve) — no persistence needed.
+    command: redis-server --save ""
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   nginx:
     image: nginx:1.27-alpine

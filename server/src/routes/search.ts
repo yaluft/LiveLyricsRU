@@ -10,7 +10,13 @@ import {
   searchTracks,
 } from '../services/ytdlp.js';
 import { looksLikeUrl } from '../services/urlGuard.js';
-import { cacheStream, proxyStreamUrl, STREAM_CACHE, STREAM_INFLIGHT } from '../lib/streamCache.js';
+import {
+  cacheStream,
+  evictCachedStream,
+  getCachedStream,
+  proxyStreamUrl,
+  STREAM_INFLIGHT,
+} from '../lib/streamCache.js';
 import { asString, sendApiError, trackFromBody, trackFromId } from './shared.js';
 
 export function registerSearchRoutes(app: FastifyInstance): void {
@@ -21,7 +27,7 @@ export function registerSearchRoutes(app: FastifyInstance): void {
     if (looksLikeUrl(query)) {
       try {
         const { track, stream } = await resolveUrl(query);
-        cacheStream(track.id, stream.url, stream.mimeType);
+        await cacheStream(track.id, stream.url, stream.mimeType);
         return { query, results: [track], sampled: false };
       } catch (error) {
         if (error instanceof ResolveFailed) {
@@ -59,7 +65,7 @@ export function registerSearchRoutes(app: FastifyInstance): void {
     try {
       if (url) {
         const { track, stream } = await resolveUrl(url);
-        cacheStream(track.id, stream.url, stream.mimeType);
+        await cacheStream(track.id, stream.url, stream.mimeType);
         return { track, stream: { ...stream, url: proxyStreamUrl(track.id) } };
       }
       // Search results come from yt-dlp, not the demo catalogue, so a catalogue
@@ -70,7 +76,7 @@ export function registerSearchRoutes(app: FastifyInstance): void {
         return sendApiError(reply, 404, 'unknown_track', 'Трек не найден', 'Начните новый поиск.');
       }
       const stream = await resolveTrack(track);
-      cacheStream(track.id, stream.url, stream.mimeType);
+      await cacheStream(track.id, stream.url, stream.mimeType);
       return { track, stream: { ...stream, url: proxyStreamUrl(track.id) } };
     } catch (error) {
       if (error instanceof ResolveFailed) {
@@ -95,8 +101,8 @@ export function registerSearchRoutes(app: FastifyInstance): void {
     // (or throws on) ids that contain a literal `%`.
     const trackId = (request.params as { trackId: string }).trackId;
 
-    let cached = STREAM_CACHE.get(trackId);
-    if (!cached || cached.expiresAt < Date.now()) {
+    let cached = await getCachedStream(trackId);
+    if (!cached) {
       const track = findTrack(trackId) ?? trackFromId(trackId);
       if (!track) {
         return sendApiError(reply, 404, 'unknown_track', 'Трек не найден');
@@ -108,8 +114,8 @@ export function registerSearchRoutes(app: FastifyInstance): void {
           STREAM_INFLIGHT.set(trackId, pending);
         }
         const stream = await pending;
-        cacheStream(trackId, stream.url, stream.mimeType);
-        cached = STREAM_CACHE.get(trackId);
+        await cacheStream(trackId, stream.url, stream.mimeType);
+        cached = await getCachedStream(trackId);
       } catch (error) {
         if (error instanceof ResolveFailed) {
           return sendApiError(reply, 422, 'resolve_failed', error.message, error.hint);
@@ -148,7 +154,7 @@ export function registerSearchRoutes(app: FastifyInstance): void {
       // (expired/IP-bound); drop it so the next request re-resolves via
       // yt-dlp instead of repeating the same failure against a dead URL.
       if ([403, 404, 410].includes(upstream.status)) {
-        STREAM_CACHE.delete(trackId);
+        await evictCachedStream(trackId);
       }
       request.log.warn({ status: upstream.status, trackId }, 'stream upstream returned non-ok');
       return sendApiError(reply, 502, 'stream_failed', 'Источник недоступен');
@@ -156,6 +162,11 @@ export function registerSearchRoutes(app: FastifyInstance): void {
 
     reply.code(upstream.status);
     reply.header('Content-Type', cached.mimeType);
+    // Overrides whatever caching header the upstream video CDN sent (which may
+    // be `no-cache`): the audio bytes for a given trackId are stable forever,
+    // so this response is safe to cache — a prerequisite for CDN edge-caching
+    // of these responses (see docs/cdn-recommendations.md).
+    reply.header('Cache-Control', 'public, max-age=86400');
     if (upstream.status === 206) reply.header('Accept-Ranges', 'bytes');
     const contentRange = upstream.headers.get('content-range');
     if (contentRange) reply.header('Content-Range', contentRange);
