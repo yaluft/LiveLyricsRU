@@ -9,6 +9,7 @@ services:
       LOG_LEVEL: info
     volumes:
       - lyrika-data:/app/.data
+      - ./cookies.txt:/app/cookies.txt:ro
     expose:
       - "8787"
     healthcheck:

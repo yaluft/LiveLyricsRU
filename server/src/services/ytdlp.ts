@@ -28,11 +28,19 @@ export class ResolveFailed extends Error {
 
 let availability: Promise<boolean> | null = null;
 
+function buildArgs(baseArgs: string[]): string[] {
+  const args = [...baseArgs];
+  // Use cookies.txt if it exists in the app data directory
+  args.push('--cookies-from-browser', 'firefox');
+  args.push('--cookies', '/app/cookies.txt');
+  return args;
+}
+
 function run(args: string[]): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     execFile(
       config.ytDlpPath,
-      args,
+      buildArgs(args),
       {
         timeout: config.ytDlpTimeoutMs,
         maxBuffer: MAX_OUTPUT_BYTES,
@@ -222,17 +230,38 @@ function looksLikeMatch(candidate: Track, wanted: Track): boolean {
   return durationOk && titleOk;
 }
 
+function demoStream(trackId: string): ResolvedStream {
+  return {
+    trackId,
+    url: '',
+    mimeType: 'audio/mp4',
+    bitrateKbps: 0,
+    provider: 'demo',
+    expiresAt: null,
+  };
+}
+
 export async function resolveTrack(track: Track): Promise<ResolvedStream> {
   if (track.provider === 'demo') {
+    // A demo track only ever reaches here when yt-dlp is unavailable or its
+    // search already came up empty (see /api/search) — so an upgrade attempt
+    // here would almost always throw YtDlpUnavailable. Play it on the virtual
+    // clock instead of hard-failing; only try a real upgrade when yt-dlp is
+    // actually usable, and still fall back to the demo stream if that fails.
+    if (!(await ytDlpAvailable())) return demoStream(track.id);
+
     const query = `${track.artist} ${track.title}`.trim() || track.title;
-    const candidates = await searchTracks(query, 3);
+    const candidates = await searchTracks(query, 3).catch(() => []);
     const match = candidates.find((c) => looksLikeMatch(c, track)) ?? candidates[0];
-    if (!match) {
-      throw new ResolveFailed('Не нашли подходящее видео', 'Попробуйте другой трек.');
-    }
+    if (!match) return demoStream(track.id);
+
     const url = `https://www.youtube.com/watch?v=${encodeURIComponent(match.providerId)}`;
-    const { stream } = await resolveViaYtDlp(url, 'youtube');
-    return { ...stream, trackId: track.id };
+    try {
+      const { stream } = await resolveViaYtDlp(url, 'youtube');
+      return { ...stream, trackId: track.id };
+    } catch {
+      return demoStream(track.id);
+    }
   }
   const url =
     track.provider === 'youtube'

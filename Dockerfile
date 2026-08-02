@@ -4,10 +4,12 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
+RUN apk add --no-cache git
+
 COPY package.json package-lock.json ./
-COPY shared/package.json shared/
-COPY server/package.json server/
-COPY client/package.json client/
+COPY shared/ shared/
+COPY server/ server/
+COPY client/ client/
 RUN npm ci
 
 COPY . .
@@ -20,9 +22,9 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# yt-dlp needs python + ffmpeg. Drop this layer and the app still runs — it
+# yt-dlp needs python + ffmpeg + SSL certs. Drop this layer and the app still runs — it
 # falls back to the demo catalogue and reports the resolver as unavailable.
-RUN apk add --no-cache python3 ffmpeg ca-certificates \
+RUN apk add --no-cache python3 ffmpeg ca-certificates openssl curl \
   && wget -qO /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
   && chmod +x /usr/local/bin/yt-dlp
 

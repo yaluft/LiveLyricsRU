@@ -392,8 +392,15 @@ npm run dev         # client + server, hot reload
 npm run build       # shared → server → client
 npm run typecheck   # strict tsc across all three workspaces
 npm test            # node:test suites
+npm run test:e2e    # Playwright smoke suite against the dev server
 npm start           # run the built server
 ```
+
+`npm run test:e2e` drives a real Chromium browser through the app (search →
+play → lyrics → loops → layout switch → the SSRF guard) via Playwright,
+started against `npm run dev`. A `.mcp.json` in the repo root also wires up
+the `@playwright/mcp` server for interactive browser-driven work from an
+MCP-aware Claude Code session.
 
 TypeScript runs in strict mode with `noUncheckedIndexedAccess` and `noUnusedLocals`
 everywhere. There is no `any` in application code.

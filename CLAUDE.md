@@ -10,6 +10,7 @@ npm run dev         # shared (watch) + server (tsx watch) + client (vite), concu
 npm run build       # strict order: shared → server → client
 npm run typecheck   # tsc --noEmit across all three workspaces (aliased as `npm run lint`)
 npm test            # node:test via tsx, server workspace only
+npm run test:e2e    # Playwright smoke suite (e2e/), against `npm run dev`
 npm start           # run the built server (dist/index.js)
 ```
 
@@ -28,6 +29,8 @@ npm run test -w @lyrika/server -- --test-name-pattern "rejects IP literals"
 Test files are excluded from `server/tsconfig.json`, so `npm run typecheck` does not check them.
 
 There is no linter or formatter beyond `tsc`. All three workspaces run `strict` + `noUncheckedIndexedAccess` + `noUnusedLocals` + `verbatimModuleSyntax`; application code contains no `any`.
+
+**Browser E2E** lives at the repo root in `e2e/*.spec.ts` (Playwright, config at `playwright.config.ts`), separate from the workspace unit tests above. `npm run test:e2e` boots the normal `npm run dev` stack (client on :5173 proxying to the API on :8787) and drives real Chromium. It runs without `yt-dlp` on PATH, so every test exercises the demo-catalogue degrade path (`provider: 'demo'`) rather than real stream resolution — that's deliberate, not a gap: it's the one code path guaranteed to run the same in any environment. A `.mcp.json` at the repo root wires up `@playwright/mcp` for interactive, MCP-driven browser use from Claude Code sessions on this repo.
 
 ## Architecture
 
