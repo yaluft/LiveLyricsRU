@@ -11,7 +11,12 @@ const ALLOWED_HOSTS: { suffix: string; provider: StreamProvider }[] = [
   { suffix: 'youtube-nocookie.com', provider: 'youtube' },
   { suffix: 'vk.com', provider: 'vk' },
   { suffix: 'vkvideo.ru', provider: 'vk' },
+  // Covers open.spotify.com, api.spotify.com and accounts.spotify.com.
   { suffix: 'spotify.com', provider: 'spotify' },
+  // Deezer is a metadata-only import source: playlist entries are re-matched
+  // against a real playable provider, so nothing here is ever streamed.
+  { suffix: 'deezer.com', provider: 'demo' },
+  { suffix: 'api.deezer.com', provider: 'demo' },
 ];
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
@@ -65,7 +70,7 @@ export function checkMediaUrl(raw: string): UrlCheck {
   if (!match) {
     return {
       ok: false,
-      reason: `Хост ${hostname} не в списке разрешённых (YouTube, VK, Spotify)`,
+      reason: `Хост ${hostname} не в списке разрешённых (YouTube, VK, Spotify, Deezer)`,
     };
   }
 

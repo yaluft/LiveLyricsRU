@@ -173,6 +173,65 @@ export const STRINGS = {
   noTranslation: ['перевод недоступен', 'no translation available'],
   nothingPlaying: ['Ничего не играет', 'Nothing is playing'],
   openSearch: ['Открыть поиск', 'Open search'],
+
+  // Manual lyric entry
+  insertLyrics: ['Вставить текст', 'Insert lyrics'],
+  editLyrics: ['Править текст', 'Edit lyrics'],
+  lyricsEditorTitle: ['Свой текст песни', 'Your own lyrics'],
+  lyricsEditorHint: [
+    'Вставьте LRC с таймкодами вида [00:21.12] или просто текст построчно — время расставится равномерно.',
+    'Paste LRC with [00:21.12] timestamps, or plain text line by line — timings will be spread evenly.',
+  ],
+  lyricsEditorPlaceholder: ['[00:21.12] Первая строка…', '[00:21.12] First line…'],
+  lyricsEditorSave: ['Сохранить текст', 'Save lyrics'],
+  lyricsEditorDelete: ['Удалить свой текст', 'Delete my lyrics'],
+  lyricsEditorParsed: ['строк распознано', 'lines parsed'],
+  lyricsEditorSynced: ['с таймкодами', 'with timestamps'],
+  lyricsEditorPlain: ['без таймкодов', 'no timestamps'],
+  lyricsEditorEmpty: ['Вставьте текст, чтобы увидеть разбор', 'Paste text to see the parse'],
+  lyricsSaved: ['Текст сохранён', 'Lyrics saved'],
+  lyricsDeleted: ['Свой текст удалён', 'Your lyrics were deleted'],
+  fillFromAi: ['Найти через ИИ', 'Find with AI'],
+  aiFilledEditor: ['ИИ подставил черновик — проверьте и сохраните', 'AI filled a draft — review and save'],
+
+  // Line explanation
+  explainLine: ['Объяснить строку', 'Explain this line'],
+  explainTitle: ['Разбор строки', 'Line breakdown'],
+  explainMeaning: ['Смысл', 'What it means'],
+  explainLiteral: ['Дословно', 'Literally'],
+  explainNotes: ['Идиомы и отсылки', 'Idioms and references'],
+  explainPending: ['Разбираем…', 'Working through it…'],
+  explainFailed: ['Не удалось разобрать строку', 'Could not break down the line'],
+
+  // Favourites, playlists, import
+  favorites: ['Избранное', 'Favourites'],
+  addToFavorites: ['В избранное', 'Add to favourites'],
+  removeFromFavorites: ['Убрать из избранного', 'Remove from favourites'],
+  playlists: ['Плейлисты', 'Playlists'],
+  newPlaylist: ['Новый плейлист', 'New playlist'],
+  playlistName: ['Название плейлиста', 'Playlist name'],
+  createPlaylist: ['Создать', 'Create'],
+  deletePlaylist: ['Удалить плейлист', 'Delete playlist'],
+  addToPlaylist: ['В плейлист', 'Add to playlist'],
+  removeFromPlaylist: ['Убрать', 'Remove'],
+  emptyPlaylist: ['Плейлист пуст', 'This playlist is empty'],
+  noPlaylists: ['Плейлистов пока нет', 'No playlists yet'],
+  playAllTracks: ['Слушать всё', 'Play all'],
+  trackCount: ['треков', 'tracks'],
+  importSection: ['Импорт плейлиста', 'Import a playlist'],
+  importDeezer: ['Deezer', 'Deezer'],
+  importYoutube: ['YouTube', 'YouTube'],
+  importSpotify: ['Spotify', 'Spotify'],
+  importText: ['Списком', 'From a list'],
+  importUrlPlaceholder: ['Ссылка на плейлист', 'Playlist URL'],
+  importTextPlaceholder: ['Исполнитель — Название, по строке на трек', 'Artist — Title, one per line'],
+  importRun: ['Импортировать', 'Import'],
+  importPending: ['Импортируем…', 'Importing…'],
+  importDone: ['Импортировано треков', 'tracks imported'],
+  importSkipped: ['не распознано', 'not recognised'],
+
+  // Artwork
+  artworkAlt: ['Обложка', 'Cover art'],
 } as const satisfies Record<string, Pair>;
 
 export type StringKey = keyof typeof STRINGS;

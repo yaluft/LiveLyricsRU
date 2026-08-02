@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { MOBILE_QUERY, useMediaQuery } from './hooks';
 import { ClipComposer } from './components/ClipComposer';
 import { Landing } from './components/Landing';
+import { LyricsEditor } from './components/LyricsEditor';
 import { MobileShell } from './components/MobileShell';
 import { OceanBackground } from './components/OceanBackground';
 import { SearchOverlay } from './components/SearchOverlay';
@@ -9,6 +10,7 @@ import { StageLayout } from './components/StageLayout';
 import { StudioLayout } from './components/StudioLayout';
 import { Toasts } from './components/Toasts';
 import { useLibrary } from './state/library';
+import { usePlaylists } from './state/playlists';
 import { usePlayer } from './state/player';
 import { useSettings } from './state/settings';
 import { useUi } from './state/ui';
@@ -44,6 +46,7 @@ export function App(): JSX.Element {
   const track = usePlayer((s) => s.track);
   const searchOpen = useUi((s) => s.searchOpen);
   const clipOpen = useUi((s) => s.clipComposerOpen);
+  const lyricsEditorOpen = useUi((s) => s.lyricsEditorOpen);
   const view = useUi((s) => s.view);
   const loadLibrary = useLibrary((s) => s.load);
   const isMobile = useMediaQuery(MOBILE_QUERY);
@@ -52,6 +55,7 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     void loadLibrary();
+    void usePlaylists.getState().load();
   }, [loadLibrary]);
 
   const showLanding = !track && view === 'now' && !isMobile;
@@ -74,6 +78,7 @@ export function App(): JSX.Element {
 
       {searchOpen ? <SearchOverlay /> : null}
       {clipOpen ? <ClipComposer /> : null}
+      {lyricsEditorOpen ? <LyricsEditor /> : null}
       <Toasts />
     </div>
   );

@@ -6,14 +6,16 @@ import { useT } from '../state/settings';
 import { useUi } from '../state/ui';
 import { formatRemaining, formatTime } from '../utils';
 import { ArtistPanel } from './ArtistPanel';
+import { Artwork } from './Artwork';
 import { LangSwitch } from './LangSwitch';
+import { PlaylistsView } from './PlaylistsView';
 import { LyricStage } from './LyricStage';
 import { Seekbar } from './Seekbar';
 import { SettingsView } from './SettingsView';
 import { VocabularyView } from './VocabularyView';
 import { Icon } from './Icon';
 
-type SheetTab = 'queue' | 'related' | 'artist';
+type SheetTab = 'queue' | 'related' | 'playlists' | 'artist';
 
 function QueueSheet(): JSX.Element {
   const t = useT();
@@ -55,6 +57,7 @@ function QueueSheet(): JSX.Element {
             [
               ['queue', t('navQueue')],
               ['related', t('relatedSection')],
+              ['playlists', t('playlists')],
               ['artist', t('aboutArtist')],
             ] as const
           ).map(([id, label]) => (
@@ -74,7 +77,7 @@ function QueueSheet(): JSX.Element {
             <div className="stack stack--tight">
               {track ? (
                 <div className="row row--current">
-                  <div className="art row__art row__art--md" />
+                  <Artwork src={track.artworkUrl} className="row__art row__art--md" />
                   <div className="row__meta">
                     <span className="row__title">{track.title}</span>
                     <span className="row__sub">{track.artist} · играет</span>
@@ -102,7 +105,7 @@ function QueueSheet(): JSX.Element {
                     <span className="row__grip" aria-hidden>
                       ⋮⋮
                     </span>
-                    <div className="art row__art row__art--md" />
+                    <Artwork src={item.artworkUrl} className="row__art row__art--md" />
                     <div className="row__meta">
                       <span className="row__title">{item.title}</span>
                       <span className="row__sub">
@@ -119,11 +122,11 @@ function QueueSheet(): JSX.Element {
             <div className="stack stack--tight">
               {related.map((item) => (
                 <div className="row" key={item.id}>
-                  <button
-                    type="button"
-                    className="art row__art row__art--md"
+                  <Artwork
+                    src={item.artworkUrl}
+                    className="row__art row__art--md"
                     onClick={() => void playTrack(item)}
-                    aria-label={`${t('play')} ${item.title}`}
+                    ariaLabel={`${t('play')} ${item.title}`}
                   />
                   <button type="button" className="row__meta" onClick={() => void playTrack(item)}>
                     <span className="row__title">{item.title}</span>
@@ -141,6 +144,8 @@ function QueueSheet(): JSX.Element {
               ))}
             </div>
           ) : null}
+
+          {tab === 'playlists' ? <PlaylistsView /> : null}
 
           {tab === 'artist' ? <ArtistPanel /> : null}
         </div>

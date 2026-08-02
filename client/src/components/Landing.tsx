@@ -4,6 +4,7 @@ import { api } from '../api';
 import { usePlayer } from '../state/player';
 import { useT } from '../state/settings';
 import { formatTime } from '../utils';
+import { Artwork } from './Artwork';
 import { LangSwitch } from './LangSwitch';
 import { Icon } from './Icon';
 
@@ -105,7 +106,7 @@ export function Landing(): JSX.Element {
                   className="landing__card"
                   onClick={() => void playTrack(item)}
                 >
-                  <div className="art landing__cardart" />
+                  <Artwork src={item.artworkUrl} className="landing__cardart" />
                   <div className="landing__cardmeta">
                     <span className="landing__cardtitle">{item.title}</span>
                     <span className="landing__cardsub">{formatTime(item.durationSec)}</span>

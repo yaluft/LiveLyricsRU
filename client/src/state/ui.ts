@@ -14,6 +14,7 @@ interface UiState {
   searchOpen: boolean;
   artistOpen: boolean;
   clipComposerOpen: boolean;
+  lyricsEditorOpen: boolean;
   mobileSheetOpen: boolean;
   toasts: Toast[];
 
@@ -22,6 +23,7 @@ interface UiState {
   closeSearch: () => void;
   toggleArtist: () => void;
   setClipComposer: (open: boolean) => void;
+  setLyricsEditor: (open: boolean) => void;
   setMobileSheet: (open: boolean) => void;
   toast: (message: string, tone?: Toast['tone'], action?: Toast['action']) => void;
   dismissToast: (id: string) => void;
@@ -34,6 +36,7 @@ export const useUi = create<UiState>()((set, get) => ({
   searchOpen: false,
   artistOpen: true,
   clipComposerOpen: false,
+  lyricsEditorOpen: false,
   mobileSheetOpen: false,
   toasts: [],
 
@@ -42,6 +45,7 @@ export const useUi = create<UiState>()((set, get) => ({
   closeSearch: () => set({ searchOpen: false }),
   toggleArtist: () => set((s) => ({ artistOpen: !s.artistOpen })),
   setClipComposer: (open) => set({ clipComposerOpen: open }),
+  setLyricsEditor: (open) => set({ lyricsEditorOpen: open }),
   setMobileSheet: (open) => set({ mobileSheetOpen: open }),
 
   toast: (message, tone = 'info', action) => {

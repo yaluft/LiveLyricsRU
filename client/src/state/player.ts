@@ -55,6 +55,8 @@ interface PlayerState {
   dequeue: (trackId: string) => void;
   clearQueue: () => void;
   applyLyrics: (lyrics: Lyrics) => void;
+  /** Re-asks the lyric chain for the current track without disturbing playback. */
+  reloadLyrics: () => Promise<void>;
 }
 
 const RECENTS_KEY = 'lyrika.recents';
@@ -312,6 +314,21 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   clearQueue: () => set({ queue: [] }),
 
   applyLyrics: (lyrics) => set({ lyrics, lyricsStatus: 'ready' }),
+
+  reloadLyrics: async () => {
+    const { track } = get();
+    if (!track) return;
+    set({ lyricsStatus: 'loading' });
+    try {
+      const lyrics = await api.lyrics(track);
+      // The user may have moved on while the request was in flight.
+      if (get().track?.id !== track.id) return;
+      set({ lyrics, lyricsStatus: 'ready' });
+    } catch {
+      if (get().track?.id !== track.id) return;
+      set({ lyrics: null, lyricsStatus: 'error' });
+    }
+  },
 }));
 
 engine.onUpdate(({ position, duration, playing }) => {

@@ -4,6 +4,7 @@ import { activeLineIndex, activeWordIndex, cycleRate, usePlayer } from '../state
 import { useLibrary } from '../state/library';
 import { useSettings, useT } from '../state/settings';
 import { useUi } from '../state/ui';
+import { LineExplain } from './LineExplain';
 import { WordPopover } from './WordPopover';
 
 export type StageVariant = 'stage' | 'studio' | 'mobile';
@@ -39,8 +40,10 @@ export function LyricStage({ variant }: Props): JSX.Element {
 
   const saveLine = useLibrary((s) => s.saveLine);
   const setClipComposer = useUi((s) => s.setClipComposer);
+  const setLyricsEditor = useUi((s) => s.setLyricsEditor);
 
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [explaining, setExplaining] = useState(false);
 
   const lineIndex = activeLineIndex(lyrics, position);
   const wordIndex = activeWordIndex(lyrics, lineIndex, position);
@@ -48,6 +51,19 @@ export function LyricStage({ variant }: Props): JSX.Element {
   // A lookup survives the line advancing — dismissing it is the reader's call,
   // not the playhead's. Only a track change clears it.
   useEffect(() => setSelectedWord(null), [track?.id]);
+
+  // A breakdown belongs to one line, so the playhead moving on does close it.
+  useEffect(() => setExplaining(false), [track?.id, lineIndex]);
+
+  const explainContext = useMemo(() => {
+    if (!lyrics?.lines.length || lineIndex < 0) return [];
+    const from = Math.max(0, lineIndex - VISIBLE_RADIUS);
+    const to = Math.min(lyrics.lines.length, lineIndex + VISIBLE_RADIUS + 1);
+    return lyrics.lines
+      .slice(from, to)
+      .filter((_, i) => from + i !== lineIndex)
+      .map((line) => line.text);
+  }, [lyrics, lineIndex]);
 
   const window_ = useMemo(() => {
     if (!lyrics?.lines.length) return [];
@@ -86,11 +102,17 @@ export function LyricStage({ variant }: Props): JSX.Element {
         <div className="lyricstage__panel lyricstage__panel--status" style={panelStyle}>
           <span className="empty__icon">✦</span>
           <span>{t('noLyricsPrompt')}</span>
-          {aiEnabled ? (
-            <button type="button" className="btn btn--accent" onClick={() => void retry()}>
-              {t('create')}
+          <div className="lyricstage__actions">
+            {aiEnabled ? (
+              <button type="button" className="btn btn--accent" onClick={() => void retry()}>
+                {t('create')}
+              </button>
+            ) : null}
+            {/* Always offered: pasting a text needs no assistant. */}
+            <button type="button" className="btn" onClick={() => setLyricsEditor(true)}>
+              {t('insertLyrics')}
             </button>
-          ) : null}
+          </div>
         </div>
       </div>
     );
@@ -99,11 +121,20 @@ export function LyricStage({ variant }: Props): JSX.Element {
   return (
     <div className={`lyricstage lyricstage--${variant}`}>
       <div className="lyricstage__panel" style={panelStyle}>
-        {lyrics.kind === 'draft' ? (
-          <span className="lyricstage__draft mono">
-            {t('draftBadge')} · {lyrics.sourceLabel}
-          </span>
-        ) : null}
+        <div className="lyricstage__tools">
+          {lyrics.kind === 'draft' ? (
+            <span className="lyricstage__draft mono">
+              {t('draftBadge')} · {lyrics.sourceLabel}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn--ghost lyricstage__edit"
+            onClick={() => setLyricsEditor(true)}
+          >
+            {t('editLyrics')}
+          </button>
+        </div>
 
         {window_.map(({ line, index }) => {
           const distance = Math.abs(index - lineIndex);
@@ -120,9 +151,10 @@ export function LyricStage({ variant }: Props): JSX.Element {
                         className={`word${isActive ? ' word--active' : ''}${
                           selectedWord === word.text ? ' word--selected' : ''
                         }`}
-                        onClick={() =>
-                          setSelectedWord((current) => (current === word.text ? null : word.text))
-                        }
+                        onClick={() => {
+                          setExplaining(false);
+                          setSelectedWord((current) => (current === word.text ? null : word.text));
+                        }}
                       >
                         {showTranslit ? (
                           <span className="word__translit mono">{word.translit}</span>
@@ -168,6 +200,17 @@ export function LyricStage({ variant }: Props): JSX.Element {
                       </button>
                       <button
                         type="button"
+                        className={`btn${explaining ? ' is-active' : ''}`}
+                        aria-label={t('explainLine')}
+                        onClick={() => {
+                          setSelectedWord(null);
+                          setExplaining((current) => !current);
+                        }}
+                      >
+                        ?
+                      </button>
+                      <button
+                        type="button"
                         className="btn"
                         aria-label={t('clip')}
                         onClick={() => setClipComposer(true)}
@@ -202,6 +245,18 @@ export function LyricStage({ variant }: Props): JSX.Element {
                       </button>
                       <button
                         type="button"
+                        className={`btn${explaining ? ' is-active' : ''}`}
+                        title={t('explainLine')}
+                        aria-label={t('explainLine')}
+                        onClick={() => {
+                          setSelectedWord(null);
+                          setExplaining((current) => !current);
+                        }}
+                      >
+                        ?
+                      </button>
+                      <button
+                        type="button"
                         className="btn"
                         onClick={() => setClipComposer(true)}
                       >
@@ -218,6 +273,16 @@ export function LyricStage({ variant }: Props): JSX.Element {
                     onClose={() => setSelectedWord(null)}
                   />
                 ) : null}
+
+                {explaining ? (
+                  <LineExplain
+                    text={line.text}
+                    trackTitle={track.title}
+                    artist={track.artist}
+                    context={explainContext}
+                    onClose={() => setExplaining(false)}
+                  />
+                ) : null}
               </div>
             );
           }
@@ -232,6 +297,11 @@ export function LyricStage({ variant }: Props): JSX.Element {
             >
               {showTranslit ? <span className="lyricline__translit mono">{line.translit}</span> : null}
               <span className="lyricline__text">{line.text}</span>
+              {showTranslation && line.translation ? (
+                <span className="lyricline__translation lyricline__translation--idle">
+                  {line.translation}
+                </span>
+              ) : null}
             </button>
           );
         })}

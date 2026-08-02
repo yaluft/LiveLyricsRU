@@ -1,10 +1,15 @@
 import { Readable } from 'node:stream';
 import type { FastifyInstance } from 'fastify';
 import type {
+  AiExplainRequest,
+  AiExplainResponse,
   AiLyricRequest,
   Clip,
   FeedResponse,
+  ImportRequest,
+  ImportResponse,
   Lyrics,
+  LyricsSaveRequest,
   ResolvedStream,
   SavedLine,
   SavedWord,
@@ -12,14 +17,35 @@ import type {
   StreamProvider,
   Track,
 } from '@lyrika/shared';
-import { CATALOG, demoLyrics, findTrack, searchCatalog } from '../data/catalog.js';
+import { CATALOG, findTrack, searchCatalog } from '../data/catalog.js';
 import { findArtist } from '../data/artists.js';
 import { lookupWord } from '../data/dictionary.js';
 import { SEED_CLIPS } from '../data/feed.js';
 import { JsonStore } from '../lib/store.js';
-import { fetchLyrics } from '../services/lrclib.js';
-import { fetchLyrics as fetchNeteaseLyrics } from '../services/netease.js';
 import { draftLyrics } from '../services/ai.js';
+import { explainLine, claudeAvailable } from '../services/claude.js';
+import {
+  originalLyricsForCompare,
+  removeLyrics,
+  resolveLyrics,
+  saveLyrics,
+} from '../services/lyrics.js';
+import {
+  addTrack,
+  addTracks,
+  createPlaylist,
+  deletePlaylist,
+  listPlaylists,
+  removeTrack,
+  toggleFavorite,
+} from '../services/playlists.js';
+import {
+  ImportUnavailable,
+  importFromDeezer,
+  importFromSpotify,
+  importFromText,
+  importFromYoutube,
+} from '../services/playlistImport.js';
 import {
   ResolveFailed,
   YtDlpUnavailable,
@@ -282,7 +308,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
     reply.code(upstream.status);
     reply.header('Content-Type', cached.mimeType);
-    if (upstream.status === 206) reply.header('Accept-Ranges', 'bytes');
+    // Announced on the plain 200 too, not just on 206: a media element that
+    // opens without a Range header reads the absence of this as "no seeking",
+    // which breaks scrubbing and the A–B/line loops that depend on it.
+    reply.header('Accept-Ranges', 'bytes');
     const contentRange = upstream.headers.get('content-range');
     if (contentRange) reply.header('Content-Range', contentRange);
     const contentLength = upstream.headers.get('content-length');
@@ -294,42 +323,90 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/lyrics/:trackId', async (request, reply): Promise<Lyrics | void> => {
     const { trackId } = request.params as { trackId: string };
     const query = request.query as Record<string, unknown>;
+    const translate =
+      asString(query.translate) === '1' ||
+      asString(query.translate).toLowerCase() === 'true';
 
-    const known = findTrack(trackId);
-    const track: Track = known ?? {
-      id: trackId,
-      title: asString(query.title, 'Без названия'),
-      artist: asString(query.artist, ''),
-      durationSec: Number(asString(query.duration, '0')) || 240,
-      provider: 'youtube',
-      providerId: trackId,
-      hasSyncedLyrics: false,
-    };
+    const lyrics = await resolveLyrics(
+      trackId,
+      {
+        title: asString(query.title),
+        artist: asString(query.artist),
+        duration: asString(query.duration),
+      },
+      { translate },
+    );
 
-    if (track.artist) {
-      try {
-        const remote = await fetchLyrics(track);
-        if (remote) return remote;
-      } catch (error) {
-        request.log.warn({ err: error }, 'lrclib lookup failed');
-      }
-
-      try {
-        const netease = await fetchNeteaseLyrics(track);
-        if (netease) return netease;
-      } catch (error) {
-        request.log.warn({ err: error }, 'netease lookup failed');
-      }
-    }
-
-    const demo = demoLyrics(trackId);
-    if (demo) return demo;
+    if (lyrics) return lyrics;
 
     return reply.code(404).send({
       error: 'no_lyrics',
       message: 'Текст не найден ни в одной базе',
-      hint: 'Попробуйте ИИ-ассистента.',
+      hint: 'Вставьте свой текст или попробуйте ИИ-ассистента.',
     });
+  });
+
+  app.get('/api/lyrics/:trackId/original', async (request, reply): Promise<Lyrics | void> => {
+    const { trackId } = request.params as { trackId: string };
+    const original = await originalLyricsForCompare(trackId);
+    if (original) return original;
+    return reply.code(404).send({
+      error: 'no_original',
+      message: 'Исходный текст не сохранён',
+      hint: 'Сравнение доступно только после правки текста.',
+    });
+  });
+
+  app.put('/api/lyrics/:trackId', async (request, reply): Promise<Lyrics | void> => {
+    const { trackId } = request.params as { trackId: string };
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const req: LyricsSaveRequest = {
+      trackId,
+      body: asString(body.body),
+      ...(typeof body.durationSec === 'number' ? { durationSec: body.durationSec } : {}),
+      ...(typeof body.title === 'string' ? { title: body.title } : {}),
+      ...(typeof body.artist === 'string' ? { artist: body.artist } : {}),
+    };
+    try {
+      return await saveLyrics(req);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось сохранить текст';
+      return reply.code(400).send({ error: 'bad_request', message });
+    }
+  });
+
+  /** Legacy alias — older clients POST here instead of PUT. */
+  app.post('/api/lyrics/custom', async (request, reply): Promise<Lyrics | void> => {
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const trackId = asString(body.trackId);
+    if (!trackId) {
+      return reply.code(400).send({ error: 'bad_request', message: 'Не указан trackId' });
+    }
+    const req: LyricsSaveRequest = {
+      trackId,
+      body: asString(body.body),
+      ...(typeof body.durationSec === 'number' ? { durationSec: body.durationSec } : {}),
+      ...(typeof body.title === 'string' ? { title: body.title } : {}),
+      ...(typeof body.artist === 'string' ? { artist: body.artist } : {}),
+    };
+    try {
+      return await saveLyrics(req);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось сохранить текст';
+      return reply.code(400).send({ error: 'bad_request', message });
+    }
+  });
+
+  app.delete('/api/lyrics/:trackId', async (request) => {
+    const { trackId } = request.params as { trackId: string };
+    await removeLyrics(trackId);
+    return { ok: true as const };
+  });
+
+  app.delete('/api/lyrics/custom/:trackId', async (request) => {
+    const { trackId } = request.params as { trackId: string };
+    await removeLyrics(trackId);
+    return { ok: true as const };
   });
 
   app.get('/api/artist', async (request) => {
@@ -343,6 +420,40 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'bad_request', message: 'Не указано слово' });
     }
     return lookupWord(word);
+  });
+
+  app.post('/api/ai/explain', async (request, reply): Promise<AiExplainResponse | void> => {
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const text = asString(body.text).trim();
+    if (!text) {
+      return reply.code(400).send({ error: 'bad_request', message: 'Не указана строка' });
+    }
+    const req: AiExplainRequest = {
+      text,
+      ...(typeof body.trackTitle === 'string' ? { trackTitle: body.trackTitle } : {}),
+      ...(typeof body.artist === 'string' ? { artist: body.artist } : {}),
+      ...(Array.isArray(body.context)
+        ? { context: body.context.filter((line): line is string => typeof line === 'string') }
+        : {}),
+    };
+
+    if (!claudeAvailable()) {
+      return {
+        meaning:
+          'This line is a placeholder breakdown — connect ANTHROPIC_API_KEY for a real explanation.',
+        literal: text,
+        notes: ['ИИ-разбор работает в симуляции без ключа API.'],
+        simulated: true,
+      };
+    }
+
+    try {
+      const result = await explainLine(req);
+      return { ...result, simulated: false };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось разобрать строку';
+      return reply.code(502).send({ error: 'explain_failed', message });
+    }
   });
 
   app.post('/api/ai/lyrics', async (request, reply) => {
@@ -458,5 +569,115 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const { id: clipId } = request.params as { id: string };
     const next = await clips.update((current) => current.filter((c) => c.id !== clipId));
     return { clips: next };
+  });
+
+  app.get('/api/playlists', async () => ({ playlists: await listPlaylists() }));
+
+  app.post('/api/playlists', async (request, reply) => {
+    const name = asString((request.body as Record<string, unknown> | undefined)?.name);
+    try {
+      return await createPlaylist(name);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось создать плейлист';
+      return reply.code(400).send({ error: 'bad_request', message });
+    }
+  });
+
+  app.delete('/api/playlists/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      return { playlists: await deletePlaylist(id) };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось удалить плейлист';
+      return reply.code(400).send({ error: 'bad_request', message });
+    }
+  });
+
+  app.post('/api/playlists/:id/tracks', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const track = trackFromBody((request.body ?? {}) as Record<string, unknown>);
+    if (!track) {
+      return reply.code(400).send({ error: 'bad_request', message: 'Не указан трек' });
+    }
+    try {
+      return await addTrack(id, track);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось добавить трек';
+      return reply.code(400).send({ error: 'bad_request', message });
+    }
+  });
+
+  app.delete('/api/playlists/:id/tracks/:trackId', async (request, reply) => {
+    const { id, trackId } = request.params as { id: string; trackId: string };
+    try {
+      return await removeTrack(id, trackId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось убрать трек';
+      return reply.code(400).send({ error: 'bad_request', message });
+    }
+  });
+
+  app.post('/api/playlists/favorites/toggle', async (request, reply) => {
+    const track = trackFromBody((request.body ?? {}) as Record<string, unknown>);
+    if (!track) {
+      return reply.code(400).send({ error: 'bad_request', message: 'Не указан трек' });
+    }
+    try {
+      return await toggleFavorite(track);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось обновить избранное';
+      return reply.code(400).send({ error: 'bad_request', message });
+    }
+  });
+
+  app.post('/api/import', async (request, reply): Promise<ImportResponse | void> => {
+    const body = (request.body ?? {}) as ImportRequest;
+    const source = body.source;
+    if (!source) {
+      return reply.code(400).send({ error: 'bad_request', message: 'Не указан источник' });
+    }
+
+    try {
+      let imported;
+      if (source === 'deezer') {
+        imported = await importFromDeezer(asString(body.url));
+      } else if (source === 'youtube') {
+        imported = await importFromYoutube(asString(body.url));
+      } else if (source === 'spotify') {
+        imported = await importFromSpotify(asString(body.url));
+      } else if (source === 'text') {
+        imported = importFromText(asString(body.body));
+      } else {
+        return reply.code(400).send({ error: 'bad_request', message: 'Неизвестный источник' });
+      }
+
+      let playlistId = body.playlistId;
+      if (!playlistId) {
+        const created = await createPlaylist(body.name?.trim() || imported.name || 'Импорт');
+        playlistId = created.playlist.id;
+      }
+
+      const { playlist } = await addTracks(playlistId, imported.tracks);
+      return {
+        playlist,
+        imported: imported.tracks.length,
+        skipped: imported.skipped,
+        source,
+      };
+    } catch (error) {
+      if (error instanceof ImportUnavailable) {
+        return reply.code(422).send({
+          error: 'import_failed',
+          message: error.message,
+          hint: error.hint,
+        });
+      }
+      request.log.error({ err: error }, 'import failed');
+      return reply.code(502).send({
+        error: 'import_failed',
+        message: 'Не удалось импортировать плейлист',
+        hint: 'Проверьте ссылку и попробуйте снова.',
+      });
+    }
   });
 }

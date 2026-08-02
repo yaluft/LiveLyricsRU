@@ -29,6 +29,33 @@ export interface Lyrics {
   source: LyricSourceId;
   sourceLabel: string;
   lines: LyricLine[];
+  /** True when the user saved or edited this text locally. */
+  userEdited?: boolean;
+}
+
+/** Persistent lyrics row in server/.data — JsonStore today, SQLite-ready shape. */
+export interface LyricsRecord {
+  trackId: string;
+  kind: LyricKind;
+  source: LyricSourceId;
+  sourceLabel: string;
+  /** Raw LRC body when synced; absent for plain sources. */
+  lrcBody?: string;
+  lines: LyricLine[];
+  userEdited: boolean;
+  /** Snapshot of the remote source before the first user edit, for diff view. */
+  originalLines?: LyricLine[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface LyricsSaveRequest {
+  trackId: string;
+  /** LRC with timestamps, or plain text — the server detects which. */
+  body: string;
+  durationSec?: number;
+  title?: string;
+  artist?: string;
 }
 
 export type StreamProvider = 'youtube' | 'vk' | 'spotify' | 'demo' | 'file';
@@ -142,9 +169,79 @@ export interface AiLyricRequest {
 
 export interface AiLyricResponse {
   lyrics: Lyrics;
-  /** Always true in this build: no transcription model is wired up. */
+  /** True when no model was reachable and the local placeholder answered. */
   simulated: boolean;
   notice: string;
+}
+
+/** A line the user asked the assistant to unpack, not merely translate. */
+export interface AiExplainRequest {
+  text: string;
+  trackTitle?: string;
+  artist?: string;
+  /** Surrounding lines, so the assistant can read the line in context. */
+  context?: string[];
+}
+
+export interface AiExplainResponse {
+  /** What the line actually says once the idiom is unwound. */
+  meaning: string;
+  /** The literal, word-order reading — deliberately separate from `meaning`. */
+  literal: string;
+  /** Idioms, wordplay, cultural references worth calling out. */
+  notes: string[];
+  simulated: boolean;
+}
+
+/** @deprecated Use LyricsSaveRequest — kept for older clients. */
+export type CustomLyricsRequest = LyricsSaveRequest;
+
+/** Lightweight suggestion queue entry for collaborative lyric hints. */
+export interface LyricSuggestion {
+  id: string;
+  trackId: string;
+  lineId: string;
+  text: string;
+  author: string;
+  createdAt: number;
+}
+
+export interface PlaylistTrack extends Track {
+  addedAt: number;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  /** True for the single reserved favourites list, which cannot be deleted. */
+  favorite: boolean;
+  tracks: PlaylistTrack[];
+  createdAt: number;
+}
+
+export type ImportSource = 'deezer' | 'youtube' | 'text' | 'spotify';
+
+export interface ImportRequest {
+  source: ImportSource;
+  /** Playlist URL for deezer/youtube/spotify. */
+  url?: string;
+  /** Raw "Artist — Title" lines, CSV, or exported JSON, for `text`. */
+  body?: string;
+  /** Target playlist; a new one is created when absent. */
+  playlistId?: string;
+  name?: string;
+}
+
+export interface ImportResponse {
+  playlist: Playlist;
+  imported: number;
+  /** Entries that could not be parsed or matched, for honest reporting. */
+  skipped: string[];
+  source: ImportSource;
+}
+
+export interface PlaylistsResponse {
+  playlists: Playlist[];
 }
 
 export interface FeedResponse {

@@ -1,11 +1,14 @@
 import { useCallback, useState } from 'react';
 import { CLIP_WINDOW_SEC } from '@lyrika/shared';
 import { cycleRate, usePlayer } from '../state/player';
+import { usePlaylists } from '../state/playlists';
 import { useSettings, useT } from '../state/settings';
 import { useUi } from '../state/ui';
 import { formatRemaining, formatTime } from '../utils';
 import { useEscape } from '../useEscape';
+import { Artwork } from './Artwork';
 import { ClipsView } from './ClipsView';
+import { FavoriteButton, PlaylistsView } from './PlaylistsView';
 import { DisplayMenu } from './DisplayMenu';
 import { LangSwitch } from './LangSwitch';
 import { LyricStage } from './LyricStage';
@@ -22,24 +25,30 @@ import { Icon } from './Icon';
 function StageOverlay(): JSX.Element | null {
   const view = useUi((s) => s.view);
   const setView = useUi((s) => s.setView);
+  const playlistsOpen = usePlaylists((s) => s.panelOpen);
+  const setPanel = usePlaylists((s) => s.setPanel);
   const t = useT();
-  const close = useCallback(() => setView('now'), [setView]);
+  const close = useCallback(() => {
+    setPanel(false);
+    setView('now');
+  }, [setPanel, setView]);
   useEscape(close);
 
-  if (view === 'now') return null;
+  if (view === 'now' && !playlistsOpen) return null;
 
-  const body =
-    view === 'queue' ? (
-      <QueueView />
-    ) : view === 'vocabulary' ? (
-      <VocabularyView />
-    ) : view === 'clips' ? (
-      <ClipsView />
-    ) : view === 'session' ? (
-      <SessionView />
-    ) : (
-      <SettingsView />
-    );
+  const body = playlistsOpen ? (
+    <PlaylistsView />
+  ) : view === 'queue' ? (
+    <QueueView />
+  ) : view === 'vocabulary' ? (
+    <VocabularyView />
+  ) : view === 'clips' ? (
+    <ClipsView />
+  ) : view === 'session' ? (
+    <SessionView />
+  ) : (
+    <SettingsView />
+  );
 
   return (
     <div
@@ -94,13 +103,14 @@ export function StageLayout(): JSX.Element {
     <div className="stage">
       <header className="stage__chrome">
         <div className="stage__now">
-          <div className="art stage__art" />
+          <Artwork src={track?.artworkUrl} className="stage__art" />
           <div className="stage__nowtext">
             <span className="stage__title">{track?.title ?? t('appName')}</span>
             <span className="stage__sub">
               {track ? `${track.artist} · ${lyrics?.sourceLabel ?? '—'}` : t('landingBlurb')}
             </span>
           </div>
+          {track ? <FavoriteButton track={track} className="heart--dock" /> : null}
         </div>
 
         <div className="stage__tools">

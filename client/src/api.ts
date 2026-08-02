@@ -1,9 +1,14 @@
 import type {
+  AiExplainResponse,
   AiLyricResponse,
   ArtistProfile,
   Clip,
   FeedResponse,
+  ImportRequest,
+  ImportResponse,
   Lyrics,
+  Playlist,
+  PlaylistsResponse,
   ResolvedStream,
   SavedLine,
   SavedWord,
@@ -105,6 +110,65 @@ export const api = {
     request<{ lines: SavedLine[] }>(`/api/vocabulary/lines/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
+
+  aiExplain: (payload: {
+    text: string;
+    trackTitle?: string;
+    artist?: string;
+    context?: string[];
+  }) =>
+    request<AiExplainResponse>('/api/ai/explain', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** Save lyrics the user pasted; beats every remote source for this track. */
+  saveCustomLyrics: (payload: {
+    trackId: string;
+    body: string;
+    durationSec?: number;
+    title?: string;
+    artist?: string;
+  }) =>
+    request<Lyrics>('/api/lyrics/custom', { method: 'POST', body: JSON.stringify(payload) }),
+
+  deleteCustomLyrics: (trackId: string) =>
+    request<{ ok: true }>(`/api/lyrics/custom/${encodeURIComponent(trackId)}`, {
+      method: 'DELETE',
+    }),
+
+  playlists: () => request<PlaylistsResponse>('/api/playlists'),
+
+  createPlaylist: (name: string) =>
+    request<{ playlist: Playlist; playlists: Playlist[] }>('/api/playlists', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  deletePlaylist: (id: string) =>
+    request<PlaylistsResponse>(`/api/playlists/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  addToPlaylist: (id: string, track: Track) =>
+    request<{ playlist: Playlist; playlists: Playlist[] }>(
+      `/api/playlists/${encodeURIComponent(id)}/tracks`,
+      { method: 'POST', body: JSON.stringify({ track }) },
+    ),
+
+  removeFromPlaylist: (id: string, trackId: string) =>
+    request<{ playlist: Playlist; playlists: Playlist[] }>(
+      `/api/playlists/${encodeURIComponent(id)}/tracks/${encodeURIComponent(trackId)}`,
+      { method: 'DELETE' },
+    ),
+
+  /** Toggles the track in the reserved favourites list. */
+  toggleFavorite: (track: Track) =>
+    request<{ playlist: Playlist; playlists: Playlist[]; favorited: boolean }>(
+      '/api/playlists/favorites/toggle',
+      { method: 'POST', body: JSON.stringify({ track }) },
+    ),
+
+  importPlaylist: (payload: ImportRequest) =>
+    request<ImportResponse>('/api/import', { method: 'POST', body: JSON.stringify(payload) }),
 
   feed: () => request<FeedResponse>('/api/feed'),
 

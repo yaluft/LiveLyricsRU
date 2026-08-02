@@ -26,4 +26,19 @@ export const config = {
   clientDir: resolve(process.env.CLIENT_DIR ?? '../client/dist'),
   dataDir: resolve(process.env.DATA_DIR ?? './.data'),
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+  /**
+   * Every AI feature (EN translation, lyric drafting, line explanation) needs
+   * this key. Absent, the assistant degrades to the local placeholder and the
+   * rest of the app is unaffected — same contract as a missing yt-dlp.
+   */
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
+  anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-opus-5',
+  anthropicEffort: process.env.ANTHROPIC_EFFORT ?? 'medium',
+  anthropicTimeoutMs: num(process.env.ANTHROPIC_TIMEOUT_MS, 60_000),
+  /** Keyless for public playlists. */
+  deezerBaseUrl: process.env.DEEZER_BASE_URL ?? 'https://api.deezer.com',
+  deezerTimeoutMs: num(process.env.DEEZER_TIMEOUT_MS, 8_000),
+  /** Spotify import is metadata-only and stays disabled until both are set. */
+  spotifyClientId: process.env.SPOTIFY_CLIENT_ID ?? '',
+  spotifyClientSecret: process.env.SPOTIFY_CLIENT_SECRET ?? '',
 } as const;

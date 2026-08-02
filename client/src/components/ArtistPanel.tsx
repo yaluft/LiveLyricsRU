@@ -3,6 +3,7 @@ import { usePlayer } from '../state/player';
 import { useT } from '../state/settings';
 import { useUi } from '../state/ui';
 import { formatTime } from '../utils';
+import { Artwork } from './Artwork';
 
 export function ArtistPanel(): JSX.Element | null {
   const t = useT();
@@ -26,13 +27,13 @@ export function ArtistPanel(): JSX.Element | null {
       </div>
 
       <div className="artist__identity">
-        <div className="art artist__photo">
+        <Artwork src={artist.photoUrl} alt={artist.name} className="artist__photo">
           <span className="mono">
             artist
             <br />
             photo
           </span>
-        </div>
+        </Artwork>
         <div className="artist__meta">
           <span className="artist__name">{artist.name}</span>
           <span className="artist__line">
@@ -94,7 +95,13 @@ export function ArtistPanel(): JSX.Element | null {
           </span>
           <div className="artist__grid">
             {covers.map((album) => (
-              <div key={album.title} className="art artist__cover" title={`${album.title} · ${album.year}`} />
+              <Artwork
+                key={album.title}
+                src={album.coverUrl}
+                alt={album.title}
+                className="artist__cover"
+                title={`${album.title} · ${album.year}`}
+              />
             ))}
             {overflow > 0 ? <div className="artist__cover artist__cover--more">+{overflow}</div> : null}
           </div>

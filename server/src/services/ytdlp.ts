@@ -76,6 +76,7 @@ interface YtDlpEntry {
   abr?: number;
   ext?: string;
   webpage_url?: string;
+  playlist_title?: string;
 }
 
 function parseJsonLines(stdout: string): YtDlpEntry[] {
@@ -123,6 +124,43 @@ export async function searchTracks(query: string, limit = 8): Promise<Track[]> {
   return parseJsonLines(stdout)
     .map((entry) => toTrack(entry, 'youtube'))
     .filter((t): t is Track => t !== null);
+}
+
+/**
+ * Lists a YouTube playlist without resolving any stream: `--flat-playlist` keeps
+ * it to one subprocess run, and real durations and thumbnails come through, so
+ * imported entries need no search pass.
+ */
+export async function fetchPlaylist(
+  rawUrl: string,
+  limit = 100,
+): Promise<{ title: string; tracks: Track[] }> {
+  const check = checkMediaUrl(rawUrl);
+  if (!check.ok || check.provider !== 'youtube') {
+    throw new ResolveFailed(
+      'Это не ссылка на плейлист YouTube',
+      'Вставьте ссылку вида youtube.com/playlist?list=…',
+    );
+  }
+  if (!(await ytDlpAvailable())) throw new YtDlpUnavailable();
+
+  const stdout = await run([
+    '--dump-json',
+    '--flat-playlist',
+    '--no-warnings',
+    '--yes-playlist',
+    '--playlist-end',
+    String(limit),
+    '--',
+    check.url,
+  ]);
+
+  const entries = parseJsonLines(stdout);
+  const title = entries.find((entry) => entry.playlist_title)?.playlist_title ?? 'Плейлист YouTube';
+  const tracks = entries
+    .map((entry) => toTrack(entry, 'youtube'))
+    .filter((t): t is Track => t !== null);
+  return { title, tracks };
 }
 
 async function resolveViaYtDlp(

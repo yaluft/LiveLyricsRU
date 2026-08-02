@@ -5,6 +5,8 @@ import { usePlayer } from '../state/player';
 import { useSettings, useT } from '../state/settings';
 import { useUi } from '../state/ui';
 import { formatTime } from '../utils';
+import { Artwork } from './Artwork';
+import { FavoriteButton } from './PlaylistsView';
 import { Icon } from './Icon';
 
 type Filter = 'all' | 'synced' | 'youtube';
@@ -208,11 +210,11 @@ export function SearchOverlay(): JSX.Element {
               const pending = pendingTrackId === track.id;
               return (
                 <div className={`resultrow${pending ? ' is-pending' : ''}`} key={track.id}>
-                  <button
-                    type="button"
-                    className="art resultrow__thumb"
+                  <Artwork
+                    src={track.artworkUrl}
+                    className="resultrow__thumb"
                     onClick={() => void start(track)}
-                    aria-label={`${t('play')} ${track.title}`}
+                    ariaLabel={`${t('play')} ${track.title}`}
                   />
                   <button type="button" className="resultrow__meta" onClick={() => void start(track)}>
                     <span className="resultrow__title">{track.title}</span>
@@ -236,6 +238,7 @@ export function SearchOverlay(): JSX.Element {
                   ) : (
                     <>
                       <span className="mono resultrow__time">{formatTime(track.durationSec)}</span>
+                      <FavoriteButton track={track} />
                       <button type="button" className="btn" onClick={() => enqueue(track)}>
                         {t('addToQueue')}
                       </button>

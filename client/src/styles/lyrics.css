@@ -54,6 +54,33 @@
   backdrop-filter: none !important;
 }
 
+.lyricstage__tools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lyricstage--mobile .lyricstage__tools {
+  justify-content: flex-start;
+}
+
+.lyricstage__edit {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+}
+
+.lyricstage__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .lyricstage__draft {
   font-size: 10px;
   letter-spacing: 0.14em;
@@ -97,13 +124,35 @@
   color: var(--foam);
 }
 
+/*
+ * One translucent surface, not two: `.lyricstage__panel` is the box, so on
+ * desktop the active line carries no fill or visible border of its own —
+ * emphasis is colour, weight and scale (below).
+ *
+ * `position: relative` stays: `.word-pop` and `.line-explain` anchor to it.
+ * The border shorthand stays too, but transparent — mobile inverts this
+ * arrangement (bare panel, glassed line) and its rule overrides `border-color`
+ * alone, which needs a border-style already in place here.
+ */
 .lyricline--active {
   position: relative;
   gap: 10px;
   padding: 18px 26px;
   border-radius: 18px;
-  background: rgba(79, 210, 255, 0.08);
-  border: 1px solid rgba(79, 210, 255, 0.18);
+  border: 1px solid transparent;
+}
+
+/* Desktop-only emphasis; mobile keeps its own glassed treatment. */
+.lyricstage--stage .lyricline--active .word__text,
+.lyricstage--studio .lyricline--active .word__text {
+  color: #eaf9ff;
+  font-weight: 700;
+  text-shadow: 0 2px 22px rgba(0, 16, 32, 0.6);
+}
+
+.lyricstage--stage .lyricline--active .lyricline__words,
+.lyricstage--studio .lyricline--active .lyricline__words {
+  transform: scale(1.02);
 }
 
 .lyricline__words {

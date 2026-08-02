@@ -1,15 +1,30 @@
 import { usePlayer } from '../state/player';
 import { useLibrary } from '../state/library';
+import { usePlaylists } from '../state/playlists';
 import { useSettings, useT } from '../state/settings';
 import type { ViewId } from '../state/ui';
 import { useUi } from '../state/ui';
+import { Artwork } from './Artwork';
 import { LangSwitch } from './LangSwitch';
 import { Icon } from './Icon';
 
+/**
+ * `playlists` is a pseudo-view: `ViewId` lives in `state/ui.ts`, which this feature
+ * must not touch, so the pane is flagged on the playlists store instead.
+ */
+type NavId = ViewId | 'playlists';
+
 interface NavItem {
-  id: ViewId;
+  id: NavId;
   icon: string;
-  key: 'navNowPlaying' | 'navQueue' | 'navVocabulary' | 'navClips' | 'navSession' | 'navSettings';
+  key:
+    | 'navNowPlaying'
+    | 'navQueue'
+    | 'playlists'
+    | 'navVocabulary'
+    | 'navClips'
+    | 'navSession'
+    | 'navSettings';
   count?: number;
 }
 
@@ -23,12 +38,16 @@ export function Sidebar(): JSX.Element {
   const recents = usePlayer((s) => s.recents);
   const playTrack = usePlayer((s) => s.playTrack);
   const wordCount = useLibrary((s) => s.words.length);
+  const playlistCount = usePlaylists((s) => s.playlists.length);
+  const panelOpen = usePlaylists((s) => s.panelOpen);
+  const setPanel = usePlaylists((s) => s.setPanel);
   const layout = useSettings((s) => s.layout);
   const setSetting = useSettings((s) => s.set);
 
   const items: NavItem[] = [
     { id: 'now', icon: '▶', key: 'navNowPlaying' },
     { id: 'queue', icon: '☰', key: 'navQueue', count: queueLength },
+    { id: 'playlists', icon: '♥', key: 'playlists', count: playlistCount },
     { id: 'vocabulary', icon: '★', key: 'navVocabulary', count: wordCount },
     { id: 'clips', icon: '✂', key: 'navClips' },
     { id: 'session', icon: '✦', key: 'navSession' },
@@ -53,8 +72,20 @@ export function Sidebar(): JSX.Element {
           <button
             key={item.id}
             type="button"
-            className={`rail__item${view === item.id ? ' is-active' : ''}`}
-            onClick={() => setView(item.id)}
+            className={`rail__item${
+              (item.id === 'playlists' ? panelOpen : view === item.id && !panelOpen)
+                ? ' is-active'
+                : ''
+            }`}
+            onClick={() => {
+              if (item.id === 'playlists') {
+                setView('now');
+                setPanel(true);
+              } else {
+                setPanel(false);
+                setView(item.id);
+              }
+            }}
           >
             <span className="rail__icon" aria-hidden>
               {item.icon}
@@ -78,7 +109,7 @@ export function Sidebar(): JSX.Element {
                 className="rail__track"
                 onClick={() => void playTrack(track)}
               >
-                <div className="art rail__trackart" />
+                <Artwork src={track.artworkUrl} className="rail__trackart" />
                 <div className="rail__trackmeta">
                   <span className="rail__tracktitle">{track.title}</span>
                   <span className="rail__trackartist">{track.artist}</span>
