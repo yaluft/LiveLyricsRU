@@ -26,4 +26,8 @@ export const config = {
   clientDir: resolve(process.env.CLIENT_DIR ?? '../client/dist'),
   dataDir: resolve(process.env.DATA_DIR ?? './.data'),
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+  /** Optional Netscape-format cookies.txt for yt-dlp. Unset (disabled) by default. */
+  ytDlpCookiesPath: process.env.YT_DLP_COOKIES_PATH
+    ? resolve(process.env.YT_DLP_COOKIES_PATH)
+    : undefined,
 } as const;

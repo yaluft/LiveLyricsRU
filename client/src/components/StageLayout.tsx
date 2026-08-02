@@ -17,6 +17,7 @@ import { SettingsView } from './SettingsView';
 import { TransportControls } from './TransportControls';
 import { VocabularyView } from './VocabularyView';
 import { Icon } from './Icon';
+import { Thumb } from './Thumb';
 
 /** In Stage mode the secondary views float over the lyrics instead of docking. */
 function StageOverlay(): JSX.Element | null {
@@ -94,7 +95,7 @@ export function StageLayout(): JSX.Element {
     <div className="stage">
       <header className="stage__chrome">
         <div className="stage__now">
-          <div className="art stage__art" />
+          <Thumb src={track?.artworkUrl} className="stage__art" />
           <div className="stage__nowtext">
             <span className="stage__title">{track?.title ?? t('appName')}</span>
             <span className="stage__sub">

@@ -6,6 +6,7 @@ import { useSettings, useT } from '../state/settings';
 import { useUi } from '../state/ui';
 import { formatTime } from '../utils';
 import { Icon } from './Icon';
+import { Thumb } from './Thumb';
 
 type Filter = 'all' | 'synced' | 'youtube';
 
@@ -208,9 +209,10 @@ export function SearchOverlay(): JSX.Element {
               const pending = pendingTrackId === track.id;
               return (
                 <div className={`resultrow${pending ? ' is-pending' : ''}`} key={track.id}>
-                  <button
-                    type="button"
-                    className="art resultrow__thumb"
+                  <Thumb
+                    as="button"
+                    src={track.artworkUrl}
+                    className="resultrow__thumb"
                     onClick={() => void start(track)}
                     aria-label={`${t('play')} ${track.title}`}
                   />

@@ -23,6 +23,7 @@ import { draftLyrics } from '../services/ai.js';
 import {
   ResolveFailed,
   YtDlpUnavailable,
+  cookiesConfigured,
   resolveTrack,
   resolveUrl,
   searchTracks,
@@ -122,6 +123,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/health', async () => ({
     status: 'ok',
     ytDlp: await ytDlpAvailable(),
+    ytDlpCookies: cookiesConfigured(),
     catalogSize: CATALOG.length,
   }));
 

@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { existsSync, statSync } from 'node:fs';
 import type { ResolvedStream, StreamProvider, Track } from '@lyrika/shared';
 import { config } from '../config.js';
 import { checkMediaUrl } from './urlGuard.js';
@@ -28,11 +29,32 @@ export class ResolveFailed extends Error {
 
 let availability: Promise<boolean> | null = null;
 
+/**
+ * Resolves the configured cookies path only if it exists and is a regular file.
+ * A Docker bind mount of a missing host file materializes as an empty directory,
+ * so `existsSync` alone isn't enough — passing a directory to `--cookies` makes
+ * yt-dlp fail outright.
+ */
+function resolvedCookiesPath(): string | undefined {
+  const configuredPath = config.ytDlpCookiesPath;
+  if (!configuredPath) return undefined;
+  try {
+    return existsSync(configuredPath) && statSync(configuredPath).isFile()
+      ? configuredPath
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function cookiesConfigured(): boolean {
+  return resolvedCookiesPath() !== undefined;
+}
+
 function buildArgs(baseArgs: string[]): string[] {
   const args = [...baseArgs];
-  // Use cookies.txt if it exists in the app data directory
-  args.push('--cookies-from-browser', 'firefox');
-  args.push('--cookies', '/app/cookies.txt');
+  const cookiesPath = resolvedCookiesPath();
+  if (cookiesPath) args.push('--cookies', cookiesPath);
   return args;
 }
 
@@ -235,4 +257,4 @@ export async function resolveTrack(track: Track): Promise<ResolvedStream> {
   return { ...stream, trackId: track.id };
 }
 
-export { YtDlpUnavailable };
+export { YtDlpUnavailable, buildArgs };
