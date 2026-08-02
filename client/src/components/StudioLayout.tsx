@@ -14,6 +14,7 @@ import { SessionView } from './SessionView';
 import { ClipsView } from './ClipsView';
 import { TransportControls } from './TransportControls';
 import { VocabularyView } from './VocabularyView';
+import { Thumb } from './Thumb';
 
 function CentrePane(): JSX.Element {
   const view = useUi((s) => s.view);
@@ -80,7 +81,7 @@ export function StudioLayout(): JSX.Element {
 
       <footer className="studiodock">
         <div className="studiodock__now">
-          <div className="art studiodock__art" />
+          <Thumb src={track?.artworkUrl} className="studiodock__art" />
           <div className="studiodock__meta">
             <span className="studiodock__title">{track?.title ?? t('nothingPlaying')}</span>
             <span className="studiodock__artist">{track?.artist ?? '—'}</span>

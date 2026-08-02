@@ -5,6 +5,7 @@ import type { ViewId } from '../state/ui';
 import { useUi } from '../state/ui';
 import { LangSwitch } from './LangSwitch';
 import { Icon } from './Icon';
+import { Thumb } from './Thumb';
 
 interface NavItem {
   id: ViewId;
@@ -78,7 +79,7 @@ export function Sidebar(): JSX.Element {
                 className="rail__track"
                 onClick={() => void playTrack(track)}
               >
-                <div className="art rail__trackart" />
+                <Thumb src={track.artworkUrl} className="rail__trackart" />
                 <div className="rail__trackmeta">
                   <span className="rail__tracktitle">{track.title}</span>
                   <span className="rail__trackartist">{track.artist}</span>

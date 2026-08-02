@@ -12,6 +12,7 @@ import { Seekbar } from './Seekbar';
 import { SettingsView } from './SettingsView';
 import { VocabularyView } from './VocabularyView';
 import { Icon } from './Icon';
+import { Thumb } from './Thumb';
 
 type SheetTab = 'queue' | 'related' | 'artist';
 
@@ -74,7 +75,7 @@ function QueueSheet(): JSX.Element {
             <div className="stack stack--tight">
               {track ? (
                 <div className="row row--current">
-                  <div className="art row__art row__art--md" />
+                  <Thumb src={track.artworkUrl} className="row__art row__art--md" />
                   <div className="row__meta">
                     <span className="row__title">{track.title}</span>
                     <span className="row__sub">{track.artist} · играет</span>
@@ -102,7 +103,7 @@ function QueueSheet(): JSX.Element {
                     <span className="row__grip" aria-hidden>
                       ⋮⋮
                     </span>
-                    <div className="art row__art row__art--md" />
+                    <Thumb src={item.artworkUrl} className="row__art row__art--md" />
                     <div className="row__meta">
                       <span className="row__title">{item.title}</span>
                       <span className="row__sub">
@@ -119,9 +120,10 @@ function QueueSheet(): JSX.Element {
             <div className="stack stack--tight">
               {related.map((item) => (
                 <div className="row" key={item.id}>
-                  <button
-                    type="button"
-                    className="art row__art row__art--md"
+                  <Thumb
+                    as="button"
+                    src={item.artworkUrl}
+                    className="row__art row__art--md"
                     onClick={() => void playTrack(item)}
                     aria-label={`${t('play')} ${item.title}`}
                   />

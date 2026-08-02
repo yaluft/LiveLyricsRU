@@ -7,8 +7,12 @@ services:
       SERVE_CLIENT: "true"
       CORS_ORIGIN: "*"
       LOG_LEVEL: info
+      YT_DLP_COOKIES_PATH: /app/cookies.txt
     volumes:
       - lyrika-data:/app/.data
+      # If ./cookies.txt doesn't exist on the host, Docker mounts an empty
+      # directory here instead — ytdlp.ts checks isFile() before using this
+      # path, so that case is harmless and cookies simply stay disabled.
       - ./cookies.txt:/app/cookies.txt:ro
     expose:
       - "8787"

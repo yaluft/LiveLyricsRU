@@ -5,6 +5,7 @@ import { usePlayer } from '../state/player';
 import { useT } from '../state/settings';
 import { useUi } from '../state/ui';
 import { formatTime } from '../utils';
+import { Thumb } from './Thumb';
 
 export function QueueView(): JSX.Element {
   const t = useT();
@@ -53,7 +54,7 @@ export function QueueView(): JSX.Element {
         <section className="stack">
           <span className="label">{t('nowSection')}</span>
           <div className="row row--current">
-            <div className="art row__art row__art--md" />
+            <Thumb src={track.artworkUrl} className="row__art row__art--md" />
             <div className="row__meta">
               <span className="row__title">{track.title}</span>
               <span className="row__sub">{track.artist}</span>
@@ -89,9 +90,10 @@ export function QueueView(): JSX.Element {
                 <span className="row__grip" aria-hidden>
                   ⋮⋮
                 </span>
-                <button
-                  type="button"
-                  className="art row__art"
+                <Thumb
+                  as="button"
+                  src={item.artworkUrl}
+                  className="row__art"
                   onClick={() => void playTrack(item)}
                   aria-label={`${t('play')} ${item.title}`}
                 />
@@ -126,9 +128,10 @@ export function QueueView(): JSX.Element {
           <div className="stack stack--tight">
             {related.map((item) => (
               <div className="row row--ghost" key={item.id}>
-                <button
-                  type="button"
-                  className="art row__art"
+                <Thumb
+                  as="button"
+                  src={item.artworkUrl}
+                  className="row__art"
                   onClick={() => void playTrack(item)}
                   aria-label={`${t('play')} ${item.title}`}
                 />
