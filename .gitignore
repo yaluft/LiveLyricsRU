@@ -9,3 +9,4 @@ dist/
 *.tar.gz
 *.bundle
 .claude/settings.local.json*
+.claude/worktrees/
