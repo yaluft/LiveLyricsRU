@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
 
 function num(value: string | undefined, fallback: number): number {
   const n = value ? Number(value) : NaN;
@@ -9,6 +9,8 @@ function bool(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback;
   return value === '1' || value.toLowerCase() === 'true';
 }
+
+const dataDir = resolve(process.env.DATA_DIR ?? './.data');
 
 export const config = {
   port: num(process.env.PORT, 8787),
@@ -24,6 +26,11 @@ export const config = {
   /** Serve the built client from the API process (single-container deploys). */
   serveClient: bool(process.env.SERVE_CLIENT, false),
   clientDir: resolve(process.env.CLIENT_DIR ?? '../client/dist'),
-  dataDir: resolve(process.env.DATA_DIR ?? './.data'),
+  dataDir,
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+  sqlitePath: process.env.SQLITE_PATH ?? join(dataDir, 'lyrika.db'),
+  /** Real hit TTL: a self-healing safety valve, not because lyrics go stale. */
+  lyricsCacheTtlMs: num(process.env.LYRICS_CACHE_TTL_MS, 30 * 24 * 60 * 60 * 1000),
+  /** Negative/tombstone TTL: bounds how often a genuinely-missing track re-hits LRCLIB/NetEase live. */
+  lyricsNotFoundTtlMs: num(process.env.LYRICS_NOT_FOUND_TTL_MS, 60 * 60 * 1000),
 } as const;

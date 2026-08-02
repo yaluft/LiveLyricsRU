@@ -4,7 +4,7 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git python3 make g++
 
 COPY package.json package-lock.json ./
 COPY shared/ shared/

@@ -15,9 +15,11 @@
     "@fastify/cors": "^10.0.2",
     "@fastify/static": "^10.1.2",
     "@lyrika/shared": "*",
+    "better-sqlite3": "^13.0.2",
     "fastify": "^5.2.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.13.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
