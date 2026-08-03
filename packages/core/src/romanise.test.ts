@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normaliseWord, romanise, splitWords } from './romanise.js';
+import { foldSearchText, normaliseWord, romanise, splitWords } from './romanise.js';
 
 describe('romanise', () => {
   it('spells out iotated vowels so the row reads as sound, not spelling', () => {
@@ -54,5 +54,21 @@ describe('normaliseWord', () => {
 
   it('keeps hyphens so compound words stay one key', () => {
     expect(normaliseWord('что-то')).toBe('что-то');
+  });
+});
+
+describe('foldSearchText', () => {
+  it('folds ё to е in both cases', () => {
+    expect(foldSearchText('Ещё')).toBe('Еще');
+    expect(foldSearchText('ЁЖ')).toBe('ЕЖ');
+  });
+
+  it('leaves case and everything else alone — unicode61 handles case folding', () => {
+    expect(foldSearchText('Небо Над Городом')).toBe('Небо Над Городом');
+  });
+
+  it('must stay in step with the FTS5 triggers, which fold only ё', () => {
+    // A prefix query like "никог*" has to survive the fold intact.
+    expect(foldSearchText('никог*')).toBe('никог*');
   });
 });
