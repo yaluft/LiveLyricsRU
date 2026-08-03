@@ -1,0 +1,105 @@
+@import 'tailwindcss';
+
+/*
+ * Only the handful of pieces that repeat get a class. v2's client was 43% CSS
+ * (3,299 lines across 8 files) with no system behind it, which is why this file
+ * stays small on purpose — everything else is utilities at the point of use.
+ *
+ * The colour variables are written from App.tsx so the glass panels and the
+ * eco-mode gradient track whatever the WebGL surface is currently showing,
+ * including mid-drift on an animated theme.
+ */
+:root {
+  --ocean-sky: #001a2e;
+  --ocean-surface: #0a5c8a;
+  --ocean-atmosphere: #4fd2ff;
+  --lyric-blur: 28px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ocean-sky);
+  font-family:
+    'Manrope',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility glass {
+  background: color-mix(in srgb, #000e1a 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ocean-atmosphere) 12%, transparent);
+  /* The lyric column has to stay readable over moving water — this blur is the
+     other half of the shader's fog weighting. */
+  backdrop-filter: blur(var(--lyric-blur));
+}
+
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  color: color-mix(in srgb, var(--ocean-atmosphere) 85%, white);
+  background: color-mix(in srgb, var(--ocean-atmosphere) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ocean-atmosphere) 18%, transparent);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+@utility btn-primary {
+  background: color-mix(in srgb, var(--ocean-atmosphere) 22%, transparent);
+  color: white;
+}
+
+@utility btn-ghost {
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--ocean-atmosphere) 60%, white);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+
+@utility chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--ocean-atmosphere) 70%, white);
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(255 255 255 / 8%);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@utility chip-on {
+  background: color-mix(in srgb, var(--ocean-atmosphere) 24%, transparent);
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Respected throughout: the water is decoration, and decoration should never
+   be the reason someone cannot use the app. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

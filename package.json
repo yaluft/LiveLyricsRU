@@ -21,8 +21,11 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "//pretest:e2e": "The dev server imports @lyrika/core from its dist, which nothing else in the e2e path builds. Without this the suite passes locally on a warm dist and fails everywhere else.",
+    "pretest:e2e": "tsc --build",
     "test:e2e": "playwright test",
     "start": "node packages/server/dist/index.js",
+    "build:dictionary": "npm run build -w @lyrika/build-dictionary && node tools/build-dictionary/dist/index.js",
     "clean": "tsc --build --clean && rm -rf packages/web/dist"
   },
   "devDependencies": {
