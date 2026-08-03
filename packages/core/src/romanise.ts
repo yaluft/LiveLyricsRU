@@ -83,3 +83,20 @@ export function normaliseWord(word: string): string {
     .replace(/ё/g, 'е')
     .replace(/[^\p{L}\p{M}-]/gu, '');
 }
+
+/**
+ * Folds ё to е for full-text search, preserving everything else.
+ *
+ * SQLite's `unicode61` tokeniser case-folds Cyrillic but will not do this:
+ * `remove_diacritics` only strips marks from characters that decompose, and ё
+ * is its own codepoint rather than е plus a combining diaeresis. Russian
+ * writers treat the two as interchangeable, so both the indexed text and the
+ * query have to be folded for a search of "еще" to find "ещё".
+ *
+ * The indexing half of this lives in the FTS5 triggers in
+ * `drizzle/0001_lyric_search.sql` as a matching pair of `replace()` calls.
+ * Change one and you must change the other.
+ */
+export function foldSearchText(text: string): string {
+  return text.replace(/ё/g, 'е').replace(/Ё/g, 'Е');
+}

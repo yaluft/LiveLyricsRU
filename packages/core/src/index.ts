@@ -9,7 +9,13 @@ export type {
   Track,
 } from './types.js';
 
-export { normaliseWord, romanise, splitWords, type SplitWord } from './romanise.js';
+export {
+  foldSearchText,
+  normaliseWord,
+  romanise,
+  splitWords,
+  type SplitWord,
+} from './romanise.js';
 
 export { looksLikeLrc, parseLrc, parseLyrics, parsePlainLyrics } from './lyrics/lrc.js';
 
