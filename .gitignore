@@ -1,11 +1,12 @@
 node_modules/
 dist/
+.tsbuild/
 .data/
+*.tsbuildinfo
 *.log
 .env
 .env.local
 .DS_Store
-*.tsbuildinfo
-*.tar.gz
-*.bundle
+test-results/
+playwright-report/
 .claude/settings.local.json*

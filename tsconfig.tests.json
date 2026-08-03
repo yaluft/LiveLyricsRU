@@ -1,0 +1,15 @@
+{
+  // v2 excluded test files from tsconfig entirely, so `npm run typecheck` never
+  // looked at them. This project typechecks them explicitly — no emit, so it
+  // needs no place in the composite reference graph.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "incremental": false,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["packages/*/src/**/*.test.ts", "packages/*/src/**/*.test.tsx"]
+}
