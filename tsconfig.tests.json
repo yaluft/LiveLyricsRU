@@ -11,5 +11,9 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["packages/*/src/**/*.test.ts", "packages/*/src/**/*.test.tsx"]
+  // Only the Node packages. packages/web's own tsconfig has no `exclude`, so it
+  // already typechecks its `.test.tsx` files with the JSX and DOM settings they
+  // need — matching them here as well would check them a second time under a
+  // Node config that has neither.
+  "include": ["packages/core/src/**/*.test.ts", "packages/server/src/**/*.test.ts"]
 }
