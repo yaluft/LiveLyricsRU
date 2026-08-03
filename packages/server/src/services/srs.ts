@@ -1,4 +1,4 @@
-import { and, asc, eq, lte } from 'drizzle-orm';
+import { asc, count, eq, lte } from 'drizzle-orm';
 import { createEmptyCard, fsrs, generatorParameters, Rating, type Card, type State } from 'ts-fsrs';
 import { normaliseWord } from '@lyrika/core';
 import type { Db } from '../db/index.js';
@@ -183,9 +183,11 @@ export async function reviewCard(
 
 /** Cards due today, for the queue badge. */
 export async function dueCount(db: Db, now = Date.now()): Promise<number> {
-  const rows = await db
-    .select({ id: srsCards.id })
+  // Counted in SQLite rather than by pulling every due row back and reading
+  // `.length` off the array.
+  const [row] = await db
+    .select({ value: count() })
     .from(srsCards)
-    .where(and(lte(srsCards.due, now)));
-  return rows.length;
+    .where(lte(srsCards.due, now));
+  return row?.value ?? 0;
 }

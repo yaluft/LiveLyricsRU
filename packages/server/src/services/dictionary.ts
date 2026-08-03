@@ -19,7 +19,7 @@ export interface WordDefinition {
   found: boolean;
 }
 
-let client: Client | null | undefined;
+let client: Client | null = null;
 
 /**
  * The dictionary is a separate, read-only database built offline by
@@ -29,17 +29,18 @@ let client: Client | null | undefined;
  * than vendored into this repository.
  */
 function open(): Client | null {
-  if (client !== undefined) return client;
+  if (client) return client;
 
-  if (!existsSync(config.dictionaryPath)) {
-    client = null;
-    return null;
-  }
+  // Absence is deliberately NOT memoised. The dictionary is built by a separate
+  // offline command, and caching "missing" forever would mean building it while
+  // the server runs had no effect until a restart — a genuinely confusing
+  // outcome for a step the README tells you to run. existsSync is cheap.
+  if (!existsSync(config.dictionaryPath)) return null;
 
   try {
     client = createClient({ url: `file:${config.dictionaryPath}` });
   } catch {
-    client = null;
+    return null;
   }
   return client;
 }
@@ -49,7 +50,8 @@ export function dictionaryAvailable(): boolean {
 }
 
 export function resetDictionary(): void {
-  client = undefined;
+  client?.close();
+  client = null;
 }
 
 /**

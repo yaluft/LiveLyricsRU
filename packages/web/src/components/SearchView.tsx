@@ -28,11 +28,13 @@ export function SearchView(): JSX.Element {
       if (response.results.length === 0) {
         setError({ message: 'Ничего не найдено', hint: 'Попробуйте вставить ссылку.' });
       }
-    } catch (failure) {
-      const api = failure instanceof ApiFailure ? failure : null;
+    } catch (caught) {
+      // Deliberately not named `api` — that shadows the imported API module,
+      // and the next person to add a retry in this block gets a baffling error.
+      const failure = caught instanceof ApiFailure ? caught : null;
       setError({
-        message: api?.message ?? 'Поиск не удался',
-        ...(api?.hint ? { hint: api.hint } : {}),
+        message: failure?.message ?? 'Поиск не удался',
+        ...(failure?.hint ? { hint: failure.hint } : {}),
       });
       setResults([]);
     } finally {

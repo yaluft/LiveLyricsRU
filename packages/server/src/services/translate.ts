@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { config } from '../config.js';
 import type { Db } from '../db/index.js';
 import { translations } from '../db/schema.js';
@@ -30,14 +30,16 @@ async function readCache(
   // Chunked: SQLite has a hard limit on bound parameters per statement.
   for (let i = 0; i < hashes.length; i += 400) {
     const slice = hashes.slice(i, i + 400);
+    // Both halves of the primary key are in the WHERE clause, so this is an
+    // index lookup rather than fetching every language and filtering in JS.
     const rows = await db
       .select()
       .from(translations)
-      .where(inArray(translations.lineHash, slice));
+      .where(
+        and(inArray(translations.lineHash, slice), eq(translations.targetLang, targetLang)),
+      );
 
-    for (const row of rows) {
-      if (row.targetLang === targetLang) out.set(row.lineHash, row.text);
-    }
+    for (const row of rows) out.set(row.lineHash, row.text);
   }
   return out;
 }

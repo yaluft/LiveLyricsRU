@@ -63,6 +63,23 @@ npm run dev
 A fresh clone typechecks and runs with **no pre-build step** — `tsc --build` orders the
 project references itself.
 
+### Docker
+
+```bash
+docker compose up --build      # http://localhost:8787
+```
+
+The API serves the built client from the same origin, so there is no separate
+web container and no CORS to configure. `yt-dlp` and `ffmpeg` are baked into the
+image; saved vocabulary, the lyric cache, uploads and the dictionary live on the
+`lyrika-data` volume.
+
+To enable translation, or to supply a YouTube cookie file:
+
+```bash
+ANTHROPIC_API_KEY=sk-... LYRIKA_COOKIES=./cookies.txt docker compose up
+```
+
 ### The dictionary
 
 Word definitions come from a separate database built offline:

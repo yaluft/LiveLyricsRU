@@ -27,6 +27,7 @@ const FFT_SIZE = 256;
 export class PlaybackEngine {
   #audio: HTMLAudioElement | null = null;
   #context: AudioContext | null = null;
+  #source: MediaElementAudioSourceNode | null = null;
   #analyser: AnalyserNode | null = null;
   #bins: Uint8Array<ArrayBuffer> | null = null;
   #frame = 0;
@@ -119,6 +120,8 @@ export class PlaybackEngine {
     cancelAnimationFrame(this.#frame);
     this.#frame = 0;
     this.#teardownAudio();
+    void this.#context?.close().catch(() => undefined);
+    this.#context = null;
     this.#listeners.clear();
   }
 
@@ -128,6 +131,14 @@ export class PlaybackEngine {
     this.#audio.removeAttribute('src');
     this.#audio.load();
     this.#audio = null;
+
+    // A MediaElementSource is bound to the element that created it and cannot
+    // be reused, so each track makes a new one. The AudioContext outlives them
+    // all, so without disconnecting here every track played leaves an orphaned
+    // node wired into the graph for the rest of the session.
+    this.#source?.disconnect();
+    this.#analyser?.disconnect();
+    this.#source = null;
     this.#analyser = null;
     this.#bins = null;
   }
@@ -143,6 +154,7 @@ export class PlaybackEngine {
       analyser.smoothingTimeConstant = 0.75;
       source.connect(analyser);
       analyser.connect(context.destination);
+      this.#source = source;
       this.#analyser = analyser;
       this.#bins = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
     } catch {

@@ -45,3 +45,35 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: lyrika:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # Boot the image and confirm it actually serves. A Dockerfile that builds
+      # but produces a container that cannot start is the failure mode worth
+      # catching, and it is invisible to `docker build` alone.
+      - name: Smoke-test the image
+        run: |
+          docker run -d --name lyrika -p 8787:8787 lyrika:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8787/api/health > /tmp/health.json; then
+              cat /tmp/health.json
+              # The SPA must be served from the same origin as the API.
+              curl -fsS -o /dev/null http://localhost:8787/
+              docker rm -f lyrika
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "container never became healthy"
+          docker logs lyrika
+          exit 1
