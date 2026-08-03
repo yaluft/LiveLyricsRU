@@ -1,0 +1,26 @@
+services:
+  app:
+    build: .
+    image: lyrika:3
+    restart: unless-stopped
+    ports:
+      - '8787:8787'
+    environment:
+      # Same origin — the API serves the built client, so no CORS is involved.
+      CORS_ORIGIN: '*'
+      # Set to enable translation. Without it the translation row is hidden
+      # rather than shown as unavailable.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Only read if the file actually exists; see resolvedCookiesPath().
+      YT_DLP_COOKIES: /app/cookies.txt
+    volumes:
+      # Saved vocabulary, the lyric cache, uploads and the dictionary.
+      - lyrika-data:/app/.data
+      # A YouTube cookie file, when one is needed. `:ro` and the trailing `-`
+      # default keep this optional; note that Docker creates an empty
+      # *directory* here if the host file is missing, which the server detects
+      # and ignores rather than handing a directory to yt-dlp.
+      - ${LYRIKA_COOKIES:-/dev/null}:/app/cookies.txt:ro
+
+volumes:
+  lyrika-data:

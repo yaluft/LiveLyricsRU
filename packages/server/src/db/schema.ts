@@ -127,6 +127,8 @@ export const srsCards = sqliteTable(
     reps: integer('reps').notNull().default(0),
     lapses: integer('lapses').notNull().default(0),
     state: integer('state').notNull().default(0),
+    /** How far through the learning sequence — FSRS restarts it if this is lost. */
+    learningSteps: integer('learning_steps').notNull().default(0),
     lastReview: timestamp('last_review'),
   },
   (table) => [uniqueIndex('srs_cards_entry_idx').on(table.vocabEntryId), index('srs_cards_due_idx').on(table.due)],
