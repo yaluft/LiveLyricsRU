@@ -4,6 +4,7 @@ import { ClipComposer } from './components/ClipComposer';
 import { Landing } from './components/Landing';
 import { MobileShell } from './components/MobileShell';
 import { OceanBackground } from './components/OceanBackground';
+import { Visualizer } from './components/Visualizer';
 import { SearchOverlay } from './components/SearchOverlay';
 import { StageLayout } from './components/StageLayout';
 import { StudioLayout } from './components/StudioLayout';
@@ -41,6 +42,7 @@ function useGlobalKeys(): void {
 
 export function App(): JSX.Element {
   const layout = useSettings((s) => s.layout);
+  const bgMode = useSettings((s) => s.bgMode);
   const track = usePlayer((s) => s.track);
   const searchOpen = useUi((s) => s.searchOpen);
   const clipOpen = useUi((s) => s.clipComposerOpen);
@@ -58,7 +60,7 @@ export function App(): JSX.Element {
 
   return (
     <div className="app">
-      <OceanBackground />
+      {bgMode === 'visualizer' ? <Visualizer /> : <OceanBackground />}
 
       <div className="app__content">
         {isMobile ? (

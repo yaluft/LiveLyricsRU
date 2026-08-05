@@ -1,4 +1,4 @@
-import { audioLevel } from './level';
+import { audioLevel, audioSpectrum } from './level';
 
 export interface EngineState {
   position: number;
@@ -167,19 +167,53 @@ export class PlaybackEngine {
   }
 
   #sampleLevel(now: number): number {
-    if (!this.#playing) return 0;
+    if (!this.#playing) {
+      audioSpectrum.bins.fill(0);
+      return 0;
+    }
     if (this.#analyser && this.#bins) {
       this.#analyser.getByteFrequencyData(this.#bins);
       let sum = 0;
       const usable = Math.floor(this.#bins.length * 0.6);
       for (let i = 0; i < usable; i += 1) sum += this.#bins[i] ?? 0;
+      this.#writeSpectrumFromBins();
       return Math.min(1, sum / usable / 190);
     }
     // Layered sines give the water a musical-looking swell when no analyser
     // is available (demo tracks, cross-origin streams).
     const t = now / 1000;
     const swell = Math.sin(t * 1.7) * 0.35 + Math.sin(t * 0.63 + 1.1) * 0.3 + Math.sin(t * 3.3) * 0.15;
-    return Math.min(1, Math.max(0, 0.45 + swell * 0.5));
+    const level = Math.min(1, Math.max(0, 0.45 + swell * 0.5));
+    this.#writeSyntheticSpectrum(now, level);
+    return level;
+  }
+
+  /** Maps the analyser's low→mid bins across the visualiser strip. */
+  #writeSpectrumFromBins(): void {
+    const src = this.#bins;
+    if (!src) return;
+    const dst = audioSpectrum.bins;
+    // The upper quarter of an FFT is mostly quiet air for music; spreading the
+    // low-mid range across the strip keeps every bar lively.
+    const span = Math.max(1, Math.floor(src.length * 0.75));
+    for (let i = 0; i < dst.length; i += 1) {
+      const idx = Math.floor((i / dst.length) * span);
+      dst[i] = src[idx] ?? 0;
+    }
+    audioSpectrum.real = true;
+  }
+
+  /** A bass-heavy, shimmering spectrum so the bars stay musical with no analyser. */
+  #writeSyntheticSpectrum(now: number, level: number): void {
+    const dst = audioSpectrum.bins;
+    const t = now / 1000;
+    for (let i = 0; i < dst.length; i += 1) {
+      const n = i / dst.length;
+      const hump = Math.exp(-((n - 0.15) ** 2) / 0.05);
+      const shimmer = 0.5 + 0.5 * Math.sin(t * (2 + n * 6) + i * 0.5);
+      dst[i] = Math.max(0, Math.min(255, (hump * 0.7 + 0.3) * shimmer * level * 255));
+    }
+    audioSpectrum.real = false;
   }
 
   #emit(): void {
