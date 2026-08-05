@@ -21,6 +21,17 @@ export const config = {
   /** Unofficial NetEase Cloud Music web API, used as a fallback lyrics source. */
   neteaseBaseUrl: process.env.NETEASE_BASE_URL ?? 'https://music.163.com',
   neteaseTimeoutMs: num(process.env.NETEASE_TIMEOUT_MS, 6_000),
+  /**
+   * Google Gemini (free tier) powers line translation and the AI lyric
+   * assistant. Both features degrade to their previous behaviour when the key
+   * is absent, so an unset key is a supported configuration, not an error.
+   */
+  geminiApiKey: process.env.GEMINI_API_KEY ?? '',
+  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+  geminiBaseUrl: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com',
+  geminiTimeoutMs: num(process.env.GEMINI_TIMEOUT_MS, 15_000),
+  /** ISO code the translation feature renders lyrics into. */
+  translateTargetLang: process.env.TRANSLATE_TARGET_LANG ?? 'en',
   /** Serve the built client from the API process (single-container deploys). */
   serveClient: bool(process.env.SERVE_CLIENT, false),
   clientDir: resolve(process.env.CLIENT_DIR ?? '../client/dist'),

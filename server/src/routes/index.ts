@@ -20,6 +20,8 @@ import { JsonStore } from '../lib/store.js';
 import { fetchLyrics } from '../services/lrclib.js';
 import { fetchLyrics as fetchNeteaseLyrics } from '../services/netease.js';
 import { draftLyrics } from '../services/ai.js';
+import { geminiAvailable } from '../services/gemini.js';
+import { translateLyrics } from '../services/translation.js';
 import {
   ResolveFailed,
   YtDlpUnavailable,
@@ -122,6 +124,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/health', async () => ({
     status: 'ok',
     ytDlp: await ytDlpAvailable(),
+    gemini: geminiAvailable(),
     catalogSize: CATALOG.length,
   }));
 
@@ -309,19 +312,21 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (track.artist) {
       try {
         const remote = await fetchLyrics(track);
-        if (remote) return remote;
+        if (remote) return await translateLyrics(remote);
       } catch (error) {
         request.log.warn({ err: error }, 'lrclib lookup failed');
       }
 
       try {
         const netease = await fetchNeteaseLyrics(track);
-        if (netease) return netease;
+        if (netease) return await translateLyrics(netease);
       } catch (error) {
         request.log.warn({ err: error }, 'netease lookup failed');
       }
     }
 
+    // Demo lyrics already ship with hand-written translations, so they skip the
+    // translation pass.
     const demo = demoLyrics(trackId);
     if (demo) return demo;
 
@@ -358,7 +363,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       withTranslation: body.withTranslation !== false,
     };
     const duration = asNumber(body.durationSec, 240);
-    return draftLyrics(draft, duration);
+    return await draftLyrics(draft, duration);
   });
 
   app.get('/api/vocabulary', async () => ({
