@@ -1,26 +1,37 @@
 services:
   app:
     build: .
-    image: lyrika:3
     restart: unless-stopped
-    ports:
-      - '8787:8787'
     environment:
-      # Same origin — the API serves the built client, so no CORS is involved.
-      CORS_ORIGIN: '*'
-      # Set to enable translation. Without it the translation row is hidden
-      # rather than shown as unavailable.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      # Only read if the file actually exists; see resolvedCookiesPath().
-      YT_DLP_COOKIES: /app/cookies.txt
+      PORT: 8787
+      SERVE_CLIENT: "true"
+      CORS_ORIGIN: "*"
+      LOG_LEVEL: info
     volumes:
-      # Saved vocabulary, the lyric cache, uploads and the dictionary.
       - lyrika-data:/app/.data
-      # A YouTube cookie file, when one is needed. `:ro` and the trailing `-`
-      # default keep this optional; note that Docker creates an empty
-      # *directory* here if the host file is missing, which the server detects
-      # and ignores rather than handing a directory to yt-dlp.
-      - ${LYRIKA_COOKIES:-/dev/null}:/app/cookies.txt:ro
+      - ./cookies.txt:/app/cookies.txt:ro
+    expose:
+      - "8787"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
   lyrika-data:
