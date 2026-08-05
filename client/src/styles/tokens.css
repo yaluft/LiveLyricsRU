@@ -1,0 +1,54 @@
+/* Palette is the repo's own Ocean theme, as specified in the Лирика v2 design. */
+:root {
+  --ink: #000810;
+  --deep: #002850;
+  --wave: #00aaff;
+  --foam: #d0f0ff;
+  --mist: #80dfff;
+
+  --accent: #4fd2ff;
+  --accent-soft: rgba(79, 210, 255, 0.16);
+  --accent-line: rgba(79, 210, 255, 0.4);
+  --highlight: #a8ecff;
+
+  --text: #dff2ff;
+  --text-2: rgba(214, 240, 255, 0.75);
+  --text-3: rgba(214, 240, 255, 0.5);
+  --text-4: rgba(214, 240, 255, 0.35);
+  --label: rgba(160, 220, 255, 0.42);
+
+  --surface-1: rgba(2, 16, 28, 0.5);
+  --surface-2: rgba(1, 12, 22, 0.55);
+  --surface-3: rgba(1, 10, 20, 0.72);
+  --glass: rgba(0, 14, 26, 0.42);
+
+  --line: rgba(120, 215, 255, 0.12);
+  --line-strong: rgba(120, 215, 255, 0.22);
+  --fill: rgba(120, 215, 255, 0.08);
+  --fill-2: rgba(120, 215, 255, 0.14);
+
+  --danger-bg: rgba(60, 14, 20, 0.4);
+  --danger-line: rgba(255, 120, 120, 0.24);
+  --danger-text: rgba(255, 190, 190, 0.75);
+  --danger-strong: #ffc9c9;
+
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --sans: Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --r-sm: 9px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-2xl: 28px;
+  --r-pill: 999px;
+
+  --shadow-panel: 0 40px 120px rgba(0, 0, 0, 0.45);
+  --shadow-pop: 0 24px 60px rgba(0, 0, 0, 0.55);
+
+  /* Overridden at runtime from the settings store. */
+  --lyric-blur: 28px;
+
+  --rail-w: 272px;
+  --artist-w: 336px;
+  --dock-h: 84px;
+}

@@ -2,196 +2,424 @@
 
 # Лирика · Lyrika
 
-**Synced Russian lyrics with pronunciation, translation, and an ocean you can tune.**
+**Synced Russian lyrics with pronunciation, translation and a live ocean stage.**
 
-Tap a word for a definition. Loop a line until it sticks. Save it and it comes back for review.
+Tap any word for a definition. Loop a line until it sticks. Cut a ten-second clip and share it.
 
-[![Node](https://img.shields.io/badge/node-%E2%89%A522-3c873a?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a?logo=node.js&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![SolidJS](https://img.shields.io/badge/SolidJS-1.9-4fd2ff?logo=solid&logoColor=001018)](https://solidjs.com)
+[![React](https://img.shields.io/badge/React-18-4fd2ff?logo=react&logoColor=001018)](https://react.dev)
 [![Fastify](https://img.shields.io/badge/Fastify-5-000?logo=fastify&logoColor=white)](https://fastify.dev)
-[![SQLite](https://img.shields.io/badge/SQLite-libSQL-003b57?logo=sqlite&logoColor=white)](https://turso.tech/libsql)
+[![three.js](https://img.shields.io/badge/three.js-r172-049ef4?logo=three.js&logoColor=white)](https://threejs.org)
 [![License](https://img.shields.io/badge/license-MIT-a8ecff)](#license)
 
+<img src="docs/stage.png" alt="Lyrika Stage layout — full-screen lyrics with pronunciation above each word, an English translation beneath, and a word-definition card open beside the active line" width="100%">
+
 </div>
+
+---
+
+## Contents
+
+- [What this is](#what-this-is)
+- [Features](#features)
+- [Screens](#screens)
+- [Architecture](#architecture)
+- [Install and run](#install-and-run)
+- [Configuration](#configuration)
+- [API reference](#api-reference)
+- [Project structure](#project-structure)
+- [What is real and what is sample data](#what-is-real-and-what-is-sample-data)
+- [Security notes](#security-notes)
+- [Development](#development)
+- [License](#license)
 
 ---
 
 ## What this is
 
 Lyrika plays a song and shows its lyrics in time with the music — Cyrillic line, Latin
-pronunciation above, English translation underneath. It is built for the awkward middle
-ground between *listening* and *studying*: let it play, or stop on a word, hear it, save it,
-and loop the line at 0.75× until you can sing it.
+pronunciation above every word, English translation underneath. It is built for the
+awkward middle ground between *listening* and *studying*: you can just let it play, or
+you can stop on a word, hear it, save it, and loop the line at 0.75× until you can sing it.
 
-This is **v3**, a complete rewrite. See [what changed](#what-changed-in-v3) for why.
+This repository implements the **Лирика v2** design produced in
+[Claude Design](https://claude.ai/design). The original design bundle is kept in
+[`project/`](project/) and [`chats/`](chats/) for provenance.
+
+### The problems v2 set out to fix
+
+| Complaint about v1 | What v2 does |
+| --- | --- |
+| Lyrics are hard to read over the 3D background | Lyrics sit on a dark, blurred panel; blur depth is a user setting, and the water is deliberately weighted toward its fog colour |
+| Search, player and settings crammed into one pill | Two layouts — **Stage** (one floating controller) and **Studio** (library rail, lyrics, artist panel) — switchable at any time |
+| The dock hides and reappears unpredictably | The dock never auto-hides. It is always there |
+| Clicking a song does nothing, with no warning | Every row shows an explicit resolving state, and a failure becomes an inline error row with a retry and a fallback suggestion |
+
+---
 
 ## Features
 
-- **Word-level sync — when it is real.** Enhanced LRC (A2) `<mm:ss.xx>` word timestamps are
-  parsed and used. When a source only has line timings, the app says so and interpolates for
-  display only.
-- **Pronunciation row.** A reading-aid romanisation, not GOST: `Где свет никогда не гаснет`
-  → `gdye svyet nikogda nye gasnyet`.
-- **Tap a word → definition.** Lemma-aware lookup against an offline dictionary.
-- **Translation, paid for once.** Lines are translated on demand and cached by line hash, so
-  a chorus costs one call ever — across every track that shares it.
-- **Spaced repetition.** Saved words become FSRS review cards with a real schedule.
-- **Loop a line, or an A–B range.** Enforced on the playback clock, so loops hold at any speed.
-- **Search or upload.** Paste a YouTube/VK link, search by name, or drop in your own file with
-  an optional `.lrc`. Upload works with no network and no `yt-dlp`.
-- **Full-text lyric search** over everything ever fetched, offline.
-- **A tunable ocean.** Gerstner waves, crest foam, audio reactivity, and **13 live parameters**
-  plus animated themes that drift through a cycle on their own.
+### Reading and learning
+
+- **Word-level sync.** Each word carries its own offset inside the line, so the active word lights up as it is sung.
+- **Pronunciation row.** A reading-aid romanisation (not GOST) that spells out iotated vowels: `Где свет никогда не гаснет` → `gdye svyet nikogda nye gasnyet`.
+- **Tap a word → definition.** Lemma-aware lookup (`гаснет` → `гаснуть`), part of speech, gloss, usage note. The card stays open while the song keeps playing.
+- **Speak it.** `▸ Озвучить` reads the word aloud through the Web Speech API with a `ru-RU` voice.
+- **Saved vocabulary.** Words and whole lines persist, with the track and timestamp they came from, a repeat counter, and CSV export.
+- **Loop a line, or an A–B range.** Loops are enforced on the playback clock, so they hold at any speed.
+- **Slow down.** 0.5× / 0.75× / 1.0× / 1.25×, from the dock or from the active line itself.
+
+### Playing
+
+- **Search by name or paste a URL** (YouTube, VK). Resolution runs through `yt-dlp`.
+- **Honest loading and failure states.** A row that cannot be resolved says why — *"Spotify отдаёт только 30-секундные превью"* — and offers the YouTube route.
+- **Queue and related tracks**, with drag handles, per-row removal, and "add all".
+- **Demo playback.** Without `yt-dlp` installed the app still runs end to end on a bundled catalogue driven by a virtual clock, so every screen stays usable.
+
+### Around the song
+
+- **Artist panel** — origin, active years, genres, top tracks, top countries, full discography grid.
+- **Clip composer** — pick a 10-second window on the waveform, choose what to show (pronunciation, translation, waves, artwork), publish to the feed.
+- **AI lyric assistant** — the "no lyrics anywhere → draft one" path, wired end to end and clearly labelled as a simulation until a transcription model is configured.
+- **Listening session** — a shared room code for listening together.
+
+### Presentation
+
+- **Live ocean background** in WebGL: four summed wave trains, screen-space normals, specular sparkle, and audio reactivity from an `AnalyserNode` (with a musical synthetic fallback when the stream is cross-origin).
+- **Four presets** — Штиль, Прибой, Ночь, Лагуна — plus wave height, reactivity and blur sliders.
+- **Eco mode** drops WebGL entirely for a CSS gradient stand-in.
+- **Bilingual UI** — Russian, English, or both. `prefers-reduced-motion` is respected throughout.
+
+---
+
+## Screens
+
+<table>
+<tr>
+<td width="50%"><img src="docs/studio.png" alt="Studio layout with a library rail on the left, lyrics in the centre and the artist panel on the right"><br><b>Studio</b> — library rail, lyrics, artist panel</td>
+<td width="50%"><img src="docs/search.png" alt="Search results listing tracks with synced-lyrics badges and queue buttons"><br><b>Search</b> — synced-lyric badges, per-row states</td>
+</tr>
+<tr>
+<td><img src="docs/clip.png" alt="Clip composer showing a 10-second window selected on a waveform beside a preview card"><br><b>Clip composer</b> — 10s window, share to feed</td>
+<td><img src="docs/vocabulary.png" alt="Vocabulary screen listing saved words with pronunciation and glosses"><br><b>Vocabulary</b> — saved words and lines</td>
+</tr>
+<tr>
+<td><img src="docs/landing.png" alt="Landing screen with a search field over the animated ocean"><br><b>Landing</b> — paste a link or search</td>
+<td align="center"><img src="docs/mobile.png" alt="Mobile now-playing screen" width="46%"> <img src="docs/mobile-queue.png" alt="Mobile queue sheet" width="46%"><br><b>Mobile</b> — now playing and queue sheet</td>
+</tr>
+</table>
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    UI["React 18 + Zustand<br/>Stage · Studio · Mobile"]
+    ENG["PlaybackEngine<br/>audio element or virtual clock"]
+    OCEAN["OceanRenderer<br/>three.js shader"]
+    UI <--> ENG
+    ENG -- "audio level" --> OCEAN
+  end
+
+  subgraph API["Fastify 5"]
+    R["routes"]
+    G["urlGuard<br/>allowlist + SSRF checks"]
+    Y["ytdlp<br/>execFile, no shell"]
+    L["lrclib"]
+    D["dictionary · artists · catalogue"]
+    S["JsonStore"]
+    R --> G --> Y
+    R --> L
+    R --> D
+    R --> S
+  end
+
+  UI -- "/api/*" --> R
+  Y -. "spawn" .-> YTDLP[["yt-dlp"]]
+  L -. "HTTPS" .-> LRCLIB[["lrclib.net"]]
+  S -. "JSON" .-> DISK[(".data/")]
+```
+
+Three workspaces:
+
+| Package | Role |
+| --- | --- |
+| `@lyrika/shared` | Types and constants used by both sides — one definition of `Track`, `Lyrics`, `Clip`, the wave themes |
+| `@lyrika/server` | Fastify API: search, resolve, lyrics, dictionary, artist, vocabulary, clips |
+| `@lyrika/client` | Vite + React + three.js UI |
+
+**Playback is one interface with two backends.** Resolved streams play through an
+`<audio>` element; demo tracks advance a virtual clock. The UI cannot tell them apart,
+which is what keeps the whole app demonstrable without a working `yt-dlp`.
+
+**The audio level bypasses React.** The analyser writes to a module-level ref that the
+ocean's render loop reads each frame — a 60 fps signal never triggers a re-render.
+
+---
 
 ## Install and run
 
-Requires **Node ≥ 22**. `yt-dlp` and `ffmpeg` are optional.
+### Requirements
+
+- **Node.js ≥ 20** (developed on 22)
+- **`yt-dlp`** *(optional)* — for real stream resolution. Without it the app runs on the demo catalogue.
+- **`ffmpeg`** *(optional)* — used by `yt-dlp` for some formats.
+
+### Local development
 
 ```bash
 git clone https://github.com/yaluft/LiveLyricsRU.git
 cd LiveLyricsRU
+
 npm install
 npm run dev
 ```
+
+`npm install` builds `@lyrika/shared` via its `prepare` script, and `npm run dev`
+rebuilds it before starting — the client and server both import it, so it has to
+exist first. `shared` also runs in watch mode alongside them.
 
 | | |
 | --- | --- |
 | Client | http://localhost:5173 |
 | API | http://localhost:8787 |
 
-A fresh clone typechecks and runs with **no pre-build step** — `tsc --build` orders the
-project references itself.
+`npm run dev` runs both with hot reload; Vite proxies `/api` to the server.
+
+<details>
+<summary><b>Installing yt-dlp</b></summary>
+
+```bash
+# macOS
+brew install yt-dlp ffmpeg
+
+# Debian / Ubuntu
+sudo apt install ffmpeg
+sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+sudo chmod a+rx /usr/local/bin/yt-dlp
+
+# pipx, any platform
+pipx install yt-dlp
+```
+
+Confirm the API can see it:
+
+```bash
+curl -s localhost:8787/api/health
+# {"status":"ok","ytDlp":true,"catalogSize":12}
+```
+
+</details>
+
+### Production build
+
+```bash
+npm run build          # shared → server → client
+SERVE_CLIENT=true npm start
+```
+
+The API then serves the built client from the same origin on `PORT` (default `8787`).
 
 ### Docker
 
 ```bash
-docker compose up --build      # http://localhost:8787
+docker compose up --build
 ```
 
-The API serves the built client from the same origin, so there is no separate
-web container and no CORS to configure. `yt-dlp` and `ffmpeg` are baked into the
-image; saved vocabulary, the lyric cache, uploads and the dictionary live on the
-`lyrika-data` volume.
+Serves on **http://localhost:8080** through nginx, with `yt-dlp` and `ffmpeg` baked into
+the image and saved vocabulary on a named volume.
 
-To enable translation, or to supply a YouTube cookie file:
+Single container, no nginx:
 
 ```bash
-ANTHROPIC_API_KEY=sk-... LYRIKA_COOKIES=./cookies.txt docker compose up
+docker build -t lyrika .
+docker run -p 8787:8787 -v lyrika-data:/app/.data lyrika
 ```
 
-### The dictionary
-
-Word definitions come from a separate database built offline:
-
-```bash
-npm run build:dictionary -- --out ./.data/dictionary.db
-```
-
-> ⚠️ **Licensing.** The source corpora (Wiktionary via kaikki.org, OpenRussian) are
-> **CC BY-SA**, which is *not* this repository's MIT licence. The generated database is
-> therefore **not committed here** — build it yourself or fetch the release artefact, and keep
-> the attribution the builder writes into its `about` table.
-
-Without it the app runs fine; word lookups return a romanisation only, and `/api/health`
-reports `dictionary: false`.
+---
 
 ## Configuration
 
 Copy `.env.example` to `.env`. Everything has a working default.
 
-The two that change behaviour most:
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PORT` | `8787` | API port |
+| `HOST` | `0.0.0.0` | Bind address |
+| `LOG_LEVEL` | `info` | Pino level |
+| `CORS_ORIGIN` | `http://localhost:5173` | Comma-separated origins, or `*` |
+| `YT_DLP_PATH` | `yt-dlp` | Path to the binary; when missing, resolution degrades to the demo catalogue |
+| `YT_DLP_TIMEOUT_MS` | `20000` | Kill a resolve that hangs |
+| `LRCLIB_BASE_URL` | `https://lrclib.net` | Lyric source |
+| `LRCLIB_TIMEOUT_MS` | `6000` | Lyric lookup timeout |
+| `SERVE_CLIENT` | `false` | Serve the built client from the API process |
+| `CLIENT_DIR` | `../client/dist` | Where that build lives |
+| `DATA_DIR` | `./.data` | Saved words, lines and clips |
 
-| Variable | Effect when unset |
-| --- | --- |
-| `YT_DLP_PATH` | Search and URL resolution unavailable; upload still works |
-| `ANTHROPIC_API_KEY` | Translation row is **hidden**, not shown as "unavailable" |
+Client-side preferences — language, layout, wave preset, blur, eco mode, lyric-source
+order — live in `localStorage` under `lyrika.settings`.
 
-## Architecture
+---
+
+## API reference
+
+<details open>
+<summary><b>Playback</b></summary>
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/health` | Status, whether `yt-dlp` is available, catalogue size |
+| `GET` | `/api/search?q=` | Search by term, or resolve a pasted URL. `sampled: true` means the demo catalogue answered |
+| `POST` | `/api/resolve` | `{ trackId }` or `{ url }` → `{ track, stream }` |
+
+</details>
+
+<details open>
+<summary><b>Lyrics and language</b></summary>
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/lyrics/:trackId?title=&artist=&duration=` | LRCLIB first, demo lyrics as fallback, `404` when nothing matches |
+| `GET` | `/api/define?word=` | Lemma-aware definition; always answers, even if only with a romanisation |
+| `GET` | `/api/artist?name=` | Artist profile (sample data, `estimated: true`) |
+| `POST` | `/api/ai/lyrics` | `{ query, trackId?, withTranslit?, withTranslation? }` → a draft, always `simulated: true` |
+
+</details>
+
+<details>
+<summary><b>Library</b></summary>
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/vocabulary` | `{ words, lines }` |
+| `POST` | `/api/vocabulary/words` | Save a word; re-saving increments `seenCount` |
+| `DELETE` | `/api/vocabulary/words/:id` | Remove a word |
+| `POST` | `/api/vocabulary/lines` | Save a line |
+| `DELETE` | `/api/vocabulary/lines/:id` | Remove a line |
+| `GET` | `/api/feed` | Published clips, seeded with samples |
+| `POST` | `/api/clips` | Publish a clip |
+| `DELETE` | `/api/clips/:id` | Remove a clip |
+
+</details>
+
+Errors are uniform:
+
+```jsonc
+{
+  "error": "resolve_failed",
+  "message": "Spotify отдаёт только 30-секундные превью",
+  "hint": "Попробуйте вариант с YouTube."   // rendered as the row's fallback action
+}
+```
+
+---
+
+## Project structure
 
 ```
-packages/core     types, LRC / Enhanced-LRC parsing, romanisation — zero runtime deps
-packages/server   Fastify 5 · Drizzle · libSQL · yt-dlp · stream proxy
-packages/web      SolidJS · Vite · three.js
-tools/build-dictionary   one-shot: open corpus → dictionary.db
+├── shared/src/index.ts       Types + wave themes shared by client and server
+├── server/src
+│   ├── config.ts             Env parsing, all defaults
+│   ├── routes/index.ts       Every endpoint
+│   ├── services
+│   │   ├── urlGuard.ts       Host allowlist, SSRF rejection  ← unit tested
+│   │   ├── ytdlp.ts          execFile wrapper, never a shell
+│   │   ├── lrclib.ts         Lyric lookup
+│   │   └── ai.ts             Draft-lyric placeholder
+│   ├── lib
+│   │   ├── transliterate.ts  Reading-aid romanisation  ← unit tested
+│   │   ├── lrc.ts            LRC parsing → line/word model  ← unit tested
+│   │   └── store.ts          Atomic JSON persistence
+│   └── data                  Demo catalogue, glossary, artists, feed seed
+└── client/src
+    ├── audio/engine.ts       Audio element + virtual clock behind one interface
+    ├── bg/ocean.ts           three.js wave shader
+    ├── state                 settings · player · library · ui (Zustand)
+    ├── components            Stage · Studio · Mobile + every screen
+    └── styles                Design tokens through to screen CSS
 ```
 
-**The client never sees an upstream URL.** `yt-dlp` returns an IP-bound, CORS-less CDN URL;
-everything is proxied through `/api/stream/:trackId`, uploads included, so the browser cannot
-tell a local file from a remote stream.
+---
 
-**Playback runs on a `requestAnimationFrame` tick, not media events.** `timeupdate` fires
-roughly every 250 ms and slows further at reduced rates — far too coarse to hold a loop point.
-This is why A–B loops stay tight at 0.5×.
-
-**The audio level bypasses the framework.** The analyser writes to a module-level mutable
-object that the ocean's render loop reads each frame; a 60 Hz signal never touches a signal.
-
-## What is real and what is not
+## What is real and what is sample data
 
 Stated plainly, because a demo that pretends is worse than one that admits.
 
 | Area | Status |
 | --- | --- |
-| Synced lyrics | **Real** — LRCLIB then NetEase, incl. multi-timestamp lines |
-| Word-level timing | **Real only when the source provides it.** `timingKind` records which, and interpolated timings are marked `exact: false` and rendered differently |
-| Romanisation | **Real**, computed from the text |
-| Stream resolution | **Real** — `yt-dlp`, host-allowlisted, never through a shell |
-| Upload + range serving | **Real**, content-addressed by SHA-256 |
-| Translation | **Real**, via the Claude API, cached permanently. Absent without an API key |
-| Word definitions | **Real lookup** against a dictionary you build; absent → romanisation only |
-| Vocabulary + spaced repetition | **Real** — FSRS via `ts-fsrs`, with an append-only review log |
-| Lyric full-text search | **Real**, SQLite FTS5, offline |
-| Artist profiles, clip feed, AI lyric assistant, listening sessions | **Removed.** They were sample data, seed data, a hardcoded placeholder, and a `Math.random()` room code |
+| Synced lyrics | **Real** — LRCLIB, parsed from LRC including multi-timestamp lines |
+| Stream resolution | **Real** — `yt-dlp`, with host allowlisting |
+| Romanisation | **Real** — every line and word, computed from the text |
+| Word definitions | **Real lookup, bundled glossary.** ~70 lemmas with inflected forms; unknown words return a romanisation-only card |
+| Playback, loops, speed, queue, vocabulary, clips | **Real** |
+| Demo catalogue lyrics | **Original demo text**, not the published lyrics of the songs they are attached to. Real lyrics only ever come from the configured sources at runtime |
+| Artist bio, top countries, discography | **Sample data**, flagged `estimated: true` and labelled in the UI |
+| Clip feed | **Local only** — your clips persist to disk; other authors are seed data |
+| AI lyric assistant | **Simulated** — the route and the UI path are real, no transcription model is wired up. Every response is flagged `simulated: true` |
+| Listening session | **Local only** — the room code generates, cross-device sync is not implemented |
+| MP4 clip export | **Not implemented** — the button says so |
 
-## What changed in v3
+---
 
-v2's headline features did not survive an audit:
+## Security notes
 
-- **"Word-level sync" was `offset: (span * wi) / words.length`** — a line's duration divided
-  evenly across its words. Because those derived offsets were *stored*, nothing downstream
-  could distinguish them from real data. v3 stores only what the source gave.
-- **Translations existed for 12 demo tracks.** Both live providers set `translation: ''`, so
-  every real song printed *«перевод недоступен»* on every line.
-- The dictionary was **~70 hand-written lemmas**; the lyric-source setting was written to
-  `localStorage` and **never read**; the queue drag handles were decorative `<span>`s; and the
-  study button had **no `onClick` handler**.
-- There was **no CI**, 14 unit tests in two files, and zero client tests.
+Pasted URLs and shell-outs are the risky surface here, so:
 
-v3 cuts the four simulated features and spends the effort on the three that remain.
+- **`yt-dlp` is never invoked through a shell.** `execFile` with an argv array, and every
+  caller-supplied value sits after `--` so it can never be parsed as an option.
+- **Hosts are allowlisted** before any network or subprocess work: YouTube, VK, Spotify.
+  Everything else is refused.
+- **SSRF defences** — non-HTTP protocols, IP literals (including IPv6 and link-local
+  `169.254.169.254`), embedded credentials, and lookalike hosts such as
+  `youtube.com.evil.example` are all rejected. These cases are covered by unit tests.
+- **Timeouts and output caps** on every subprocess and outbound fetch.
+- **Atomic writes** — the JSON store writes to a temp file and renames, and serialises
+  concurrent writers, so a crash cannot leave a half-written vocabulary.
+
+```bash
+npm test   # includes the URL-guard, LRC-parser and romanisation suites
+```
+
+---
 
 ## Development
 
 ```bash
 npm run dev         # client + server, hot reload
-npm run build       # all packages
-npm run typecheck   # tsc --build across the workspace
-npm run lint        # eslint, incl. solid/no-destructure
-npm test            # vitest — core, server, web
-npm run test:e2e    # playwright, no network or yt-dlp required
+npm run build       # shared → server → client
+npm run typecheck   # strict tsc across all three workspaces
+npm test            # node:test suites
+npm run test:e2e    # Playwright smoke suite against the dev server
+npm start           # run the built server
 ```
 
-`eslint-plugin-solid` is the reason this project uses ESLint rather than Biome: destructuring
-props in a Solid component severs reactivity **silently**, and it is exactly what idiomatic
-React does on line one.
+`npm run test:e2e` drives a real Chromium browser through the app (search →
+play → lyrics → loops → layout switch → the SSRF guard) via Playwright,
+started against `npm run dev`. A `.mcp.json` in the repo root also wires up
+the `@playwright/mcp` server for interactive browser-driven work from an
+MCP-aware Claude Code session.
 
-Environments that ship their own Chromium can point Playwright at it with
-`PLAYWRIGHT_CHROMIUM_PATH` rather than committing an absolute path.
+TypeScript runs in strict mode with `noUncheckedIndexedAccess` and `noUnusedLocals`
+everywhere. There is no `any` in application code.
 
-## Security notes
+### Keyboard
 
-- `yt-dlp` is **never invoked through a shell** — `execFile` with an argv array, every
-  caller-supplied value after `--`, a timeout, an output cap, and a minimal environment.
-- **Hosts are allowlisted** before any network or subprocess work. Non-HTTP protocols, IPv4
-  and IPv6 literals, embedded credentials (`https://youtube.com@evil.example`), trailing-dot
-  hosts and suffix lookalikes (`youtube.com.evil.example`) are all refused, with tests.
-- A cached stream URL is dropped on 403/404/410 but **not** on 416 — that means only the
-  requested range was bad.
+| Key | Action |
+| --- | --- |
+| <kbd>Space</kbd> | Play / pause |
+| <kbd>←</kbd> <kbd>→</kbd> | Seek ∓5s |
+| <kbd>/</kbd> | Open search |
+| <kbd>Esc</kbd> | Close the topmost panel |
+
+---
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
 
-Lyrika does not host or redistribute music or lyrics. It reads from sources you configure and
-plays streams you resolve yourself — respect the terms of those services and the copyright of
-the works you look up.
+Lyrika does not host or redistribute music or lyrics. It reads from sources you configure
+and plays streams you resolve yourself — respect the terms of those services and the
+copyright of the works you look up.
