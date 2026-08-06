@@ -85,7 +85,9 @@ export const STRINGS = {
   remove: ['Удалить', 'Remove'],
 
   settingsTitle: ['Настройки', 'Settings'],
-  bgSection: ['Фон — океан', 'Background — ocean'],
+  bgSection: ['Фон', 'Background'],
+  bgOcean: ['Океан', 'Ocean'],
+  bgVisualizer: ['Аудиоволны', 'Audio waves'],
   waveCalm: ['Штиль', 'Calm'],
   waveSurf: ['Прибой', 'Surf'],
   waveNight: ['Ночь', 'Night'],

@@ -5,6 +5,7 @@ import type { Lang, StringKey } from '../i18n';
 import { translate } from '../i18n';
 
 export type LayoutId = 'stage' | 'studio';
+export type BackgroundMode = 'ocean' | 'visualizer';
 
 export interface LyricSource {
   id: LyricSourceId;
@@ -15,6 +16,7 @@ export interface LyricSource {
 interface SettingsState {
   lang: Lang;
   layout: LayoutId;
+  bgMode: BackgroundMode;
   wavePreset: WavePreset;
   waveHeight: number;
   reactivity: number;
@@ -45,6 +47,7 @@ export const useSettings = create<SettingsState>()(
     (set) => ({
       lang: 'ru',
       layout: 'stage',
+      bgMode: 'visualizer',
       wavePreset: 'calm',
       waveHeight: 0.62,
       reactivity: 0.45,
