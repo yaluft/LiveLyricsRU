@@ -69,6 +69,13 @@ export const api = {
     return request<Lyrics>(`/api/lyrics/${encodeURIComponent(track.id)}?${params}`);
   },
 
+  saveCustomLyrics: (payload: {
+    trackId: string;
+    lrc: string;
+    durationSec?: number;
+  }) =>
+    request<Lyrics>('/api/lyrics/custom', { method: 'POST', body: JSON.stringify(payload) }),
+
   artist: (name: string) => request<ArtistProfile>(`/api/artist?name=${encodeURIComponent(name)}`),
 
   define: (word: string) => request<WordDefinition>(`/api/define?word=${encodeURIComponent(word)}`),
@@ -81,6 +88,11 @@ export const api = {
     withTranslation?: boolean;
   }) =>
     request<AiLyricResponse>('/api/ai/lyrics', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Request server to generate a timestamped LRC via Gemini. Pass { preview: true }
+  // for a deterministic sample (useful when rate-limited or testing).
+  generateLrc: (payload: { song: string; artist?: string; durationSec?: number; preview?: boolean }) =>
+    request<{ lrc: string }>('/api/lyrics/generate', { method: 'POST', body: JSON.stringify(payload) }),
 
   vocabulary: () => request<{ words: SavedWord[]; lines: SavedLine[] }>('/api/vocabulary'),
 

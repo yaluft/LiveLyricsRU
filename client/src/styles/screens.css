@@ -115,7 +115,9 @@
   font-size: 12px;
   line-height: 1.5;
   color: rgba(214, 240, 255, 0.65);
-  text-wrap: pretty;
+  /* Replace nonstandard text-wrap with cross-browser fallbacks */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .card__note {
@@ -468,7 +470,9 @@
   font-size: 12px;
   line-height: 1.45;
   color: var(--text-2);
-  text-wrap: pretty;
+  /* text-wrap is not supported in current browsers; use fallbacks */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 /* ---------- Vocabulary (2F) ---------- */
@@ -732,7 +736,9 @@
   font-weight: 700;
   line-height: 1.25;
   color: var(--foam);
-  text-wrap: balance;
+  /* text-wrap: balance is experimental; provide safe fallbacks */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .clippreview__translation {
@@ -891,7 +897,9 @@
   font-size: 16px;
   color: rgba(214, 240, 255, 0.6);
   text-align: center;
-  text-wrap: pretty;
+  /* text-wrap: pretty is nonstandard; use robust fallbacks for wrapping */
+  overflow-wrap: anywhere;
+  hyphens: auto;
   max-width: 520px;
 }
 

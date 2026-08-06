@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import type { ResolvedStream, StreamProvider, Track } from '@lyrika/shared';
 import { config } from '../config.js';
 import { checkMediaUrl } from './urlGuard.js';
@@ -30,9 +31,19 @@ let availability: Promise<boolean> | null = null;
 
 function buildArgs(baseArgs: string[]): string[] {
   const args = [...baseArgs];
-  // Use cookies.txt if it exists in the app data directory
-  args.push('--cookies-from-browser', 'firefox');
-  args.push('--cookies', '/app/cookies.txt');
+  // Insert cookies flags before the final "--" separator (if present),
+  // otherwise append them at the end. Placing them after a trailing `--`
+  // would make yt-dlp treat them as download URLs.
+  // Only add cookies flags when a cookies file actually exists in the app
+  // data dir. Guarding prevents yt-dlp from attempting to write to a
+  // non-existent path (which causes a FileNotFoundError inside yt-dlp).
+  const cookiesPath = '/app/cookies.txt';
+  if (existsSync(cookiesPath)) {
+    const cookiesArgs = ['--cookies-from-browser', 'firefox', '--cookies', cookiesPath];
+    const sepIndex = args.lastIndexOf('--');
+    const insertAt = sepIndex >= 0 ? sepIndex : args.length;
+    args.splice(insertAt, 0, ...cookiesArgs);
+  }
   return args;
 }
 

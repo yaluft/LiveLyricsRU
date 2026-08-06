@@ -24,7 +24,37 @@
   color: var(--text-3);
   font-size: 14px;
   text-align: center;
-  text-wrap: pretty;
+  /* text-wrap is non-standard; use robust fallbacks */
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.lrc-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.lrc-paste__area {
+  width: 100%;
+  resize: vertical;
+  min-height: 132px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+  background: rgba(0, 8, 16, 0.5);
+  color: var(--text-1, #eaf6ff);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lrc-paste__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .lyricstage--stage .lyricstage__panel {
@@ -166,7 +196,9 @@
 .lyricline__translation {
   font-size: 19px;
   color: rgba(214, 240, 255, 0.62);
-  text-wrap: pretty;
+  /* avoid nonstandard text-wrap */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .lyricline__controls {
@@ -338,7 +370,9 @@
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-2);
-  text-wrap: pretty;
+  /* nonstandard text-wrap removed */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .word-pop__actions {

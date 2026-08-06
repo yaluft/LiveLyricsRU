@@ -38,11 +38,19 @@ export const config = {
    * is absent, so an unset key is a supported configuration, not an error.
    */
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
-  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
   geminiBaseUrl: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com',
   geminiTimeoutMs: num(process.env.GEMINI_TIMEOUT_MS, 15_000),
   /** ISO code the translation feature renders lyrics into. */
   translateTargetLang: process.env.TRANSLATE_TARGET_LANG ?? 'en',
+  /**
+   * Wiktionary REST API — a keyless fallback for word definitions when a tapped
+   * word is not in the bundled glossary and Gemini is unavailable. Set
+   * WIKTIONARY_ENABLED=0 to turn it off.
+   */
+  wiktionaryEnabled: bool(process.env.WIKTIONARY_ENABLED, true),
+  wiktionaryBaseUrl: process.env.WIKTIONARY_BASE_URL ?? 'https://en.wiktionary.org',
+  wiktionaryTimeoutMs: num(process.env.WIKTIONARY_TIMEOUT_MS, 6_000),
   /** Serve the built client from the API process (single-container deploys). */
   serveClient: bool(process.env.SERVE_CLIENT, false),
   clientDir: resolve(process.env.CLIENT_DIR ?? '../client/dist'),

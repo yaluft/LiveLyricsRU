@@ -11,18 +11,27 @@ import type {
   SearchResponse,
   StreamProvider,
   Track,
+  WordDefinition,
 } from '@lyrika/shared';
 import { CATALOG, demoLyrics, findTrack, searchCatalog } from '../data/catalog.js';
 import { findArtist } from '../data/artists.js';
-import { lookupWord } from '../data/dictionary.js';
+import { findWord, lookupWord } from '../data/dictionary.js';
+import { normalizeWord, transliterate } from '../lib/transliterate.js';
 import { SEED_CLIPS } from '../data/feed.js';
 import { JsonStore } from '../lib/store.js';
 import { fetchLyrics } from '../services/lrclib.js';
 import { fetchLyrics as fetchNeteaseLyrics } from '../services/netease.js';
 import { fetchLyrics as fetchMusixmatchLyrics } from '../services/musixmatch.js';
 import { draftLyrics } from '../services/ai.js';
-import { geminiAvailable } from '../services/gemini.js';
+import { config } from '../config.js';
+import { defineWord as geminiDefineWord, geminiAvailable, generateLrc, type WordSense } from '../services/gemini.js';
+import { defineWord as wiktionaryDefineWord } from '../services/wiktionary.js';
 import { translateLyrics } from '../services/translation.js';
+import {
+  deleteCustomLyrics,
+  getCustomLyrics,
+  saveCustomLyrics,
+} from '../services/customLyrics.js';
 import {
   ResolveFailed,
   YtDlpUnavailable,
@@ -65,6 +74,9 @@ function proxyStreamUrl(trackId: string): string {
 const words = new JsonStore<SavedWord[]>('vocabulary-words', []);
 const lines = new JsonStore<SavedLine[]>('vocabulary-lines', []);
 const clips = new JsonStore<Clip[]>('clips', []);
+// Network word definitions (Gemini/Wiktionary), cached by normalised word so a
+// repeated tap is instant and free.
+const definitions = new JsonStore<Record<string, WordDefinition>>('definitions', {});
 
 function id(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -310,6 +322,14 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       hasSyncedLyrics: false,
     };
 
+    // A user's pasted LRC wins over every provider.
+    try {
+      const custom = await getCustomLyrics(trackId);
+      if (custom) return await translateLyrics(custom);
+    } catch (error) {
+      request.log.warn({ err: error }, 'custom lyrics load failed');
+    }
+
     if (track.artist) {
       try {
         const remote = await fetchLyrics(track);
@@ -341,8 +361,39 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(404).send({
       error: 'no_lyrics',
       message: 'Текст не найден ни в одной базе',
-      hint: 'Попробуйте ИИ-ассистента.',
+      hint: 'Попробуйте ИИ-ассистента или вставьте LRC.',
     });
+  });
+
+  // Paste an LRC (e.g. from lrcsong.com) for a track no provider has. Stored per
+  // track so it wins on the next load; translated on the way out like any source.
+  app.post('/api/lyrics/custom', async (request, reply): Promise<Lyrics | void> => {
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const trackId = asString(body.trackId).trim();
+    const lrc = asString(body.lrc);
+    if (!trackId || !lrc.trim()) {
+      return reply.code(400).send({
+        error: 'bad_request',
+        message: 'Нужны trackId и текст LRC',
+        hint: 'Вставьте строки с тайм-кодами или без.',
+      });
+    }
+    const durationSec = asNumber(body.durationSec, 240);
+    const lyrics = await saveCustomLyrics(trackId, lrc, durationSec);
+    if (!lyrics) {
+      return reply.code(422).send({
+        error: 'bad_lrc',
+        message: 'Не удалось разобрать LRC',
+        hint: 'Проверьте, что это текст песни, по строке на строку.',
+      });
+    }
+    return await translateLyrics(lyrics);
+  });
+
+  app.delete('/api/lyrics/custom/:trackId', async (request) => {
+    const { trackId } = request.params as { trackId: string };
+    await deleteCustomLyrics(trackId);
+    return { ok: true };
   });
 
   app.get('/api/artist', async (request) => {
@@ -355,6 +406,47 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (!word) {
       return reply.code(400).send({ error: 'bad_request', message: 'Не указано слово' });
     }
+
+    // 1) Curated offline glossary — instant and authoritative when it has the word.
+    const bundled = findWord(word);
+    if (bundled) return bundled;
+
+    // 2) Cached network result from a previous lookup.
+    const key = normalizeWord(word);
+    const cache = await definitions.read();
+    const cached = cache[key];
+    if (cached) return cached;
+
+    // 3) Gemini (if configured), then keyless Wiktionary. Either fills the card
+    //    with a real gloss; both silently decline and we fall back to translit.
+    let sense: WordSense | null = null;
+    try {
+      sense = geminiAvailable() ? await geminiDefineWord(word, config.translateTargetLang) : null;
+    } catch (error) {
+      request.log.warn({ err: error }, 'gemini define failed');
+    }
+    if (!sense) {
+      try {
+        sense = await wiktionaryDefineWord(word);
+      } catch (error) {
+        request.log.warn({ err: error }, 'wiktionary define failed');
+      }
+    }
+
+    if (sense) {
+      const definition: WordDefinition = {
+        word,
+        lemma: sense.lemma || word.toLowerCase(),
+        translit: transliterate(word),
+        partOfSpeech: sense.partOfSpeech || '—',
+        gloss: sense.gloss,
+        ...(sense.note !== undefined ? { note: sense.note } : {}),
+      };
+      await definitions.update((current) => ({ ...current, [key]: definition }));
+      return definition;
+    }
+
+    // 4) Nothing found anywhere: the transliteration-only card.
     return lookupWord(word);
   });
 
@@ -372,6 +464,45 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     };
     const duration = asNumber(body.durationSec, 240);
     return await draftLyrics(draft, duration);
+  });
+
+  // Generate a timestamped LRC via Gemini structured reply. Returns the LRC text.
+  app.post('/api/lyrics/generate', async (request, reply) => {
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const song = asString(body.song).trim();
+    if (!song) return reply.code(400).send({ error: 'bad_request', message: 'No song provided' });
+    const artist = asString(body.artist).trim();
+    const duration = asNumber(body.durationSec, 240);
+
+    if (body.preview === true || body.preview === '1') {
+      const sample = `[ti:${song}]
+[ar:${artist || 'Unknown'}]
+[by:Gemini LRC Generator]
+
+[00:12.50] 夢ならばどれほどよかったでしょう
+[00:12.50] [Pronunciation]: Yume naraba dore hodo yokatta deshou
+[00:12.50] [EN]: How wonderful it would be if it were all a dream
+[00:12.50] [RU]: Как было бы хорошо, если бы это оказалось сном
+`;
+      return { lrc: sample };
+    }
+
+    if (!geminiAvailable()) {
+      return reply.code(503).send({ error: 'gemini_unavailable', message: 'Gemini API key not configured' });
+    }
+
+    try {
+      const lrc = await generateLrc(song, artist, duration);
+      if (!lrc) return reply.code(502).send({ error: 'generate_failed', message: 'Model reply unparseable' });
+      return { lrc };
+    } catch (error: any) {
+      request.log.warn({ err: error }, 'gemini generateLrc failed');
+      const msg = String(error?.message ?? error);
+      if (msg.includes('Gemini 429')) {
+        return reply.code(429).send({ error: 'rate_limited', message: 'Gemini rate limit', hint: 'Try again in a minute or use your own API key' });
+      }
+      return reply.code(502).send({ error: 'generate_failed', message: 'Failed to contact Gemini' });
+    }
   });
 
   app.get('/api/vocabulary', async () => ({
