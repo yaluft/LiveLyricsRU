@@ -89,6 +89,11 @@ export const api = {
   }) =>
     request<AiLyricResponse>('/api/ai/lyrics', { method: 'POST', body: JSON.stringify(payload) }),
 
+  // Request server to generate a timestamped LRC via Gemini. Pass { preview: true }
+  // for a deterministic sample (useful when rate-limited or testing).
+  generateLrc: (payload: { song: string; artist?: string; durationSec?: number; preview?: boolean }) =>
+    request<{ lrc: string }>('/api/lyrics/generate', { method: 'POST', body: JSON.stringify(payload) }),
+
   vocabulary: () => request<{ words: SavedWord[]; lines: SavedLine[] }>('/api/vocabulary'),
 
   saveWord: (payload: Omit<SavedWord, 'id' | 'savedAt' | 'seenCount'>) =>

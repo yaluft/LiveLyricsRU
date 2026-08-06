@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { api } from '../api';
 import { CLIP_WINDOW_SEC } from '@lyrika/shared';
 import { activeLineIndex, activeWordIndex, cycleRate, usePlayer } from '../state/player';
 import { useLibrary } from '../state/library';
@@ -127,9 +128,27 @@ export function LyricStage({ variant }: Props): JSX.Element {
           ) : (
             <div className="lrc-paste__actions">
               {aiEnabled ? (
-                <button type="button" className="btn btn--accent" onClick={() => void retry()}>
-                  {t('create')}
-                </button>
+                <>
+                  <button type="button" className="btn btn--accent" onClick={() => void retry()}>
+                    {t('create')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={async () => {
+                      try {
+                        const res = await api.generateLrc({ song: track?.title || 'Unknown', artist: track?.artist || '', preview: true });
+                        // apply the generated sample immediately as pasted LRC
+                        await applyCustomLrc(res.lrc);
+                      } catch (e) {
+                        // reuse retry as a fallback UI action
+                        void retry();
+                      }
+                    }}
+                  >
+                    {t('generate')}
+                  </button>
+                </>
               ) : null}
               <button type="button" className="btn" onClick={() => setPasting(true)}>
                 {t('pasteLrc')}

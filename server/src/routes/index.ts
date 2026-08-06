@@ -24,7 +24,7 @@ import { fetchLyrics as fetchNeteaseLyrics } from '../services/netease.js';
 import { fetchLyrics as fetchMusixmatchLyrics } from '../services/musixmatch.js';
 import { draftLyrics } from '../services/ai.js';
 import { config } from '../config.js';
-import { defineWord as geminiDefineWord, geminiAvailable, type WordSense } from '../services/gemini.js';
+import { defineWord as geminiDefineWord, geminiAvailable, generateLrc, type WordSense } from '../services/gemini.js';
 import { defineWord as wiktionaryDefineWord } from '../services/wiktionary.js';
 import { translateLyrics } from '../services/translation.js';
 import {
@@ -464,6 +464,45 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     };
     const duration = asNumber(body.durationSec, 240);
     return await draftLyrics(draft, duration);
+  });
+
+  // Generate a timestamped LRC via Gemini structured reply. Returns the LRC text.
+  app.post('/api/lyrics/generate', async (request, reply) => {
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const song = asString(body.song).trim();
+    if (!song) return reply.code(400).send({ error: 'bad_request', message: 'No song provided' });
+    const artist = asString(body.artist).trim();
+    const duration = asNumber(body.durationSec, 240);
+
+    if (body.preview === true || body.preview === '1') {
+      const sample = `[ti:${song}]
+[ar:${artist || 'Unknown'}]
+[by:Gemini LRC Generator]
+
+[00:12.50] 夢ならばどれほどよかったでしょう
+[00:12.50] [Pronunciation]: Yume naraba dore hodo yokatta deshou
+[00:12.50] [EN]: How wonderful it would be if it were all a dream
+[00:12.50] [RU]: Как было бы хорошо, если бы это оказалось сном
+`;
+      return { lrc: sample };
+    }
+
+    if (!geminiAvailable()) {
+      return reply.code(503).send({ error: 'gemini_unavailable', message: 'Gemini API key not configured' });
+    }
+
+    try {
+      const lrc = await generateLrc(song, artist, duration);
+      if (!lrc) return reply.code(502).send({ error: 'generate_failed', message: 'Model reply unparseable' });
+      return { lrc };
+    } catch (error: any) {
+      request.log.warn({ err: error }, 'gemini generateLrc failed');
+      const msg = String(error?.message ?? error);
+      if (msg.includes('Gemini 429')) {
+        return reply.code(429).send({ error: 'rate_limited', message: 'Gemini rate limit', hint: 'Try again in a minute or use your own API key' });
+      }
+      return reply.code(502).send({ error: 'generate_failed', message: 'Failed to contact Gemini' });
+    }
   });
 
   app.get('/api/vocabulary', async () => ({

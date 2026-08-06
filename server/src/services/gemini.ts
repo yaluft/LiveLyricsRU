@@ -33,6 +33,10 @@ export function geminiAvailable(): boolean {
 }
 
 /** Sends one prompt and returns the concatenated text, or null when empty. */
+async function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function generate(
   prompt: string,
   opts: { json?: boolean; temperature?: number } = {},
@@ -53,19 +57,33 @@ async function generate(
     },
   };
 
-  const res = await fetch(url, {
-    method: 'POST',
-    signal: AbortSignal.timeout(config.geminiTimeoutMs),
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Gemini ${res.status}`);
+  const maxAttempts = 3;
+  let attempt = 0;
+  while (true) {
+    attempt += 1;
+    const res = await fetch(url, {
+      method: 'POST',
+      signal: AbortSignal.timeout(config.geminiTimeoutMs),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as GeminiResponse;
+      const text = (data.candidates?.[0]?.content?.parts ?? [])
+        .map((p) => p.text ?? '')
+        .join('');
+      return text.trim() ? text : null;
+    }
 
-  const data = (await res.json()) as GeminiResponse;
-  const text = (data.candidates?.[0]?.content?.parts ?? [])
-    .map((p) => p.text ?? '')
-    .join('');
-  return text.trim() ? text : null;
+    // Rate-limited — retry with exponential backoff up to maxAttempts.
+    if (res.status === 429 && attempt < maxAttempts) {
+      const backoffMs = 500 * Math.pow(2, attempt - 1);
+      await sleep(backoffMs);
+      continue;
+    }
+
+    throw new Error(`Gemini ${res.status}`);
+  }
 }
 
 /**
@@ -246,4 +264,77 @@ export async function generateLyrics(
   const raw = await generate(prompt, { json: true, temperature: 0.3 });
   if (raw === null) return null;
   return parseGeneratedLines(raw);
+}
+
+export interface LrcLine {
+  timestamp: string; // MM:SS.cc
+  original: string;
+  pronunciation?: string;
+  english?: string;
+  russian?: string;
+}
+
+/**
+ * Ask Gemini for a timestamped LRC-like JSON payload and format it into an LRC string.
+ * Returns null on any failure so callers can fall back.
+ */
+export async function generateLrc(
+  song: string,
+  artist = '',
+  durationSec = 240,
+): Promise<string | null> {
+  const header = `Generate a synchronized LRC-style JSON for the song named "${song}"` +
+    (artist ? ` by "${artist}"` : '') +
+    `. Return ONLY a JSON object with a single key "lines" that is an array of objects.` +
+    ` Each object must have these exact keys: "timestamp" (format "MM:SS.xx"), "original" (the original lyric line),` +
+    ` "pronunciation" (Latin transliteration, if available, otherwise empty), "english" (English translation),` +
+    ` and "russian" (Russian translation in Cyrillic).` +
+    ` Ensure timestamps are plausible within the song duration (${Math.round(durationSec)} seconds).` +
+    ` Return strictly valid JSON and nothing else.`;
+
+  const prompt = header + '\n\nProvide the JSON object now.';
+
+  const raw = await generate(prompt, { json: true, temperature: 0.2 });
+  if (raw === null) return null;
+
+  let value: unknown;
+  try {
+    value = extractJson(raw);
+  } catch (e) {
+    return null;
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const linesRaw = (value as { lines?: unknown }).lines;
+  if (!Array.isArray(linesRaw)) return null;
+
+  const outLines: LrcLine[] = [];
+  for (const item of linesRaw) {
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    const ts = typeof obj.timestamp === 'string' ? obj.timestamp.trim() : '';
+    const original = typeof obj.original === 'string' ? obj.original.trim() : '';
+    const pronunciation = typeof obj.pronunciation === 'string' ? obj.pronunciation.trim() : '';
+    const english = typeof obj.english === 'string' ? obj.english.trim() : '';
+    const russian = typeof obj.russian === 'string' ? obj.russian.trim() : '';
+    if (!ts || !original) continue;
+    outLines.push({ timestamp: ts, original, pronunciation, english, russian });
+  }
+  if (!outLines.length) return null;
+
+  const lrc: string[] = [];
+  lrc.push(`[ti:${song}]`);
+  lrc.push(artist ? `[ar:${artist}]` : `[ar:Unknown]`);
+  lrc.push('[by:Gemini LRC Generator]');
+  lrc.push('');
+
+  for (const ln of outLines) {
+    const tag = `[${ln.timestamp}]`;
+    lrc.push(`${tag} ${ln.original}`);
+    if (ln.pronunciation) lrc.push(`${tag} [Pronunciation]: ${ln.pronunciation}`);
+    if (ln.english) lrc.push(`${tag} [EN]: ${ln.english}`);
+    if (ln.russian) lrc.push(`${tag} [RU]: ${ln.russian}`);
+  }
+
+  return lrc.join('\n');
 }
