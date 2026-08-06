@@ -27,11 +27,14 @@ import { config } from '../config.js';
 import { defineWord as geminiDefineWord, geminiAvailable, type WordSense } from '../services/gemini.js';
 import { defineWord as wiktionaryDefineWord } from '../services/wiktionary.js';
 import { translateLyrics } from '../services/translation.js';
+import { fetchGeniusLyrics } from '../services/genius.js';
+import { plainToLyricLines } from '../lib/lrc.js';
 import {
   deleteCustomLyrics,
   getCustomLyrics,
   saveCustomLyrics,
 } from '../services/customLyrics.js';
+import { generateLrcFromPlain, generateLrcFromStamped } from '../services/lrcGenerator.js';
 import {
   ResolveFailed,
   YtDlpUnavailable,
@@ -363,6 +366,42 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       message: 'Текст не найден ни в одной базе',
       hint: 'Попробуйте ИИ-ассистента или вставьте LRC.',
     });
+  });
+
+  // Generate an LRC from user-provided plain lyrics (or stamped LRC) and save
+  // it as the track's custom lyrics. This lets the UI paste raw text and get a
+  // usable synced LRC back without manual timestamping.
+  app.post('/api/lyrics/generate', async (request, reply): Promise<any> => {
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const trackId = asString(body.trackId).trim();
+    const text = asString(body.text);
+    const lrc = asString(body.lrc);
+    if (!trackId || (!text && !lrc)) {
+      return reply.code(400).send({
+        error: 'bad_request',
+        message: 'trackId and text or lrc are required',
+        hint: 'Provide plain lyrics in `text` or an LRC in `lrc` along with trackId.',
+      });
+    }
+    const durationSec = asNumber(body.durationSec, 240);
+    try {
+      let generated: string;
+      if (lrc && lrc.trim()) {
+        // Convert stamped LRC into normalized per-line timestamps
+        generated = generateLrcFromStamped(lrc, durationSec);
+      } else {
+        // Plain text: evenly space lines across the duration
+        generated = generateLrcFromPlain(text, durationSec);
+      }
+      const saved = await saveCustomLyrics(trackId, generated, durationSec);
+      if (!saved) {
+        return reply.code(422).send({ error: 'bad_lrc', message: 'Failed to generate LRC' });
+      }
+      return await translateLyrics(saved);
+    } catch (error) {
+      request.log.error({ err: error }, 'lrc generation failed');
+      return reply.code(500).send({ error: 'internal_error', message: 'LRC generation failed' });
+    }
   });
 
   // Paste an LRC (e.g. from lrcsong.com) for a track no provider has. Stored per

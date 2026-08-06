@@ -5,6 +5,7 @@ import { useLibrary } from '../state/library';
 import { useSettings, useT } from '../state/settings';
 import { useUi } from '../state/ui';
 import { WordPopover } from './WordPopover';
+import { api } from '../api';
 
 export type StageVariant = 'stage' | 'studio' | 'mobile';
 
@@ -111,6 +112,25 @@ export function LyricStage({ variant }: Props): JSX.Element {
                   }}
                 >
                   {t('apply')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  disabled={!lrcDraft.trim()}
+                  onClick={async () => {
+                    // Generate an LRC from plain text and apply it
+                    if (!track) return;
+                    try {
+                      const lyrics = await api.generateLrc({ trackId: track.id, text: lrcDraft, durationSec: track.durationSec });
+                      applyLyrics(lyrics);
+                      setPasting(false);
+                      setLrcDraft('');
+                    } catch (err) {
+                      useUi.getState().toast('LRC generation failed', 'error');
+                    }
+                  }}
+                >
+                  Generate
                 </button>
                 <button
                   type="button"

@@ -89,6 +89,10 @@ export const api = {
   }) =>
     request<AiLyricResponse>('/api/ai/lyrics', { method: 'POST', body: JSON.stringify(payload) }),
 
+  // Generate an LRC from plain lyrics or stamped LRC and save as custom lyrics.
+  generateLrc: (payload: { trackId: string; text?: string; lrc?: string; durationSec?: number }) =>
+    request<Lyrics>('/api/lyrics/generate', { method: 'POST', body: JSON.stringify(payload) }),
+
   vocabulary: () => request<{ words: SavedWord[]; lines: SavedLine[] }>('/api/vocabulary'),
 
   saveWord: (payload: Omit<SavedWord, 'id' | 'savedAt' | 'seenCount'>) =>
