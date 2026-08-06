@@ -162,6 +162,32 @@ ocean's render loop reads each frame — a 60 fps signal never triggers a re-ren
 
 ## Install and run
 
+### Run the whole thing
+
+This is one repo with three workspaces (`shared`, `server`, `client`). You never
+`cd` into them — every command below is run **from the repository root**, and a
+single `npm run dev` starts all three together.
+
+```bash
+# From the repo root — clone, install, run everything
+git clone https://github.com/yaluft/LiveLyricsRU.git
+cd LiveLyricsRU
+
+npm install        # installs all workspaces and builds @lyrika/shared
+npm run dev        # shared (watch) + API (:8787) + client (:5173), one process
+
+# then open  →  http://localhost:5173
+```
+
+`npm run dev` builds `@lyrika/shared` first (the client and server both import
+it), then runs all three concurrently with hot reload; Vite proxies `/api` to the
+API. Optional: set `GEMINI_API_KEY` for real translation and the AI assistant,
+and install `yt-dlp` for real streams — the app runs on the demo catalogue
+without either.
+
+Prefer a single container instead? See [Docker](#docker) — `docker compose up
+--build` builds and serves the whole stack on one port.
+
 ### Requirements
 
 - **Node.js ≥ 20** (developed on 22)
@@ -209,7 +235,7 @@ Confirm the API can see it:
 
 ```bash
 curl -s localhost:8787/api/health
-# {"status":"ok","ytDlp":true,"catalogSize":12}
+# {"status":"ok","ytDlp":true,"gemini":false,"catalogSize":12}
 ```
 
 </details>
