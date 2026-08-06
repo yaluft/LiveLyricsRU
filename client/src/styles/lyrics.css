@@ -27,6 +27,34 @@
   text-wrap: pretty;
 }
 
+.lrc-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.lrc-paste__area {
+  width: 100%;
+  resize: vertical;
+  min-height: 132px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+  background: rgba(0, 8, 16, 0.5);
+  color: var(--text-1, #eaf6ff);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lrc-paste__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .lyricstage--stage .lyricstage__panel {
   max-width: 900px;
   padding: 56px 48px;

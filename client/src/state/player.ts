@@ -55,6 +55,7 @@ interface PlayerState {
   dequeue: (trackId: string) => void;
   clearQueue: () => void;
   applyLyrics: (lyrics: Lyrics) => void;
+  applyCustomLrc: (lrc: string) => Promise<void>;
 }
 
 const RECENTS_KEY = 'lyrika.recents';
@@ -312,6 +313,25 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   clearQueue: () => set({ queue: [] }),
 
   applyLyrics: (lyrics) => set({ lyrics, lyricsStatus: 'ready' }),
+
+  applyCustomLrc: async (lrc) => {
+    const { track } = get();
+    if (!track) return;
+    const { toast } = useUi.getState();
+    set({ lyricsStatus: 'loading' });
+    try {
+      const lyrics = await api.saveCustomLyrics({
+        trackId: track.id,
+        lrc,
+        durationSec: track.durationSec,
+      });
+      if (get().track?.id === track.id) set({ lyrics, lyricsStatus: 'ready' });
+    } catch (error) {
+      set({ lyricsStatus: 'error' });
+      const message = error instanceof ApiFailure ? error.message : 'Не удалось разобрать LRC';
+      toast(message, 'error');
+    }
+  },
 }));
 
 engine.onUpdate(({ position, duration, playing }) => {

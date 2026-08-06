@@ -30,6 +30,7 @@ export function LyricStage({ variant }: Props): JSX.Element {
   const toggleLoopLine = usePlayer((s) => s.toggleLoopLine);
   const setRate = usePlayer((s) => s.setRate);
   const retry = usePlayer((s) => s.retry);
+  const applyCustomLrc = usePlayer((s) => s.applyCustomLrc);
 
   const showTranslit = useSettings((s) => s.showTranslit);
   const showTranslation = useSettings((s) => s.showTranslation);
@@ -41,6 +42,8 @@ export function LyricStage({ variant }: Props): JSX.Element {
   const setClipComposer = useUi((s) => s.setClipComposer);
 
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [pasting, setPasting] = useState(false);
+  const [lrcDraft, setLrcDraft] = useState('');
 
   const lineIndex = activeLineIndex(lyrics, position);
   const wordIndex = activeWordIndex(lyrics, lineIndex, position);
@@ -86,11 +89,53 @@ export function LyricStage({ variant }: Props): JSX.Element {
         <div className="lyricstage__panel lyricstage__panel--status" style={panelStyle}>
           <span className="empty__icon">✦</span>
           <span>{t('noLyricsPrompt')}</span>
-          {aiEnabled ? (
-            <button type="button" className="btn btn--accent" onClick={() => void retry()}>
-              {t('create')}
-            </button>
-          ) : null}
+          {pasting ? (
+            <div className="lrc-paste">
+              <textarea
+                className="lrc-paste__area mono"
+                value={lrcDraft}
+                onChange={(event) => setLrcDraft(event.target.value)}
+                placeholder={t('pasteLrcPlaceholder')}
+                rows={6}
+                autoFocus
+              />
+              <div className="lrc-paste__actions">
+                <button
+                  type="button"
+                  className="btn btn--accent"
+                  disabled={!lrcDraft.trim()}
+                  onClick={() => {
+                    void applyCustomLrc(lrcDraft);
+                    setPasting(false);
+                    setLrcDraft('');
+                  }}
+                >
+                  {t('apply')}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setPasting(false);
+                    setLrcDraft('');
+                  }}
+                >
+                  {t('cancel')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="lrc-paste__actions">
+              {aiEnabled ? (
+                <button type="button" className="btn btn--accent" onClick={() => void retry()}>
+                  {t('create')}
+                </button>
+              ) : null}
+              <button type="button" className="btn" onClick={() => setPasting(true)}>
+                {t('pasteLrc')}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

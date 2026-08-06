@@ -96,18 +96,8 @@ for (const entry of ENTRIES) {
 
 export function lookupWord(raw: string): WordDefinition {
   const word = raw.trim();
-  const key = normalizeWord(word);
-  const hit = INDEX.get(key);
-  if (hit) {
-    return {
-      word,
-      lemma: hit.lemma,
-      translit: transliterate(word),
-      partOfSpeech: hit.pos,
-      gloss: hit.gloss,
-      ...(hit.note !== undefined ? { note: hit.note } : {}),
-    };
-  }
+  const hit = findWord(word);
+  if (hit) return hit;
   return {
     word,
     lemma: word.toLowerCase(),
@@ -115,5 +105,21 @@ export function lookupWord(raw: string): WordDefinition {
     partOfSpeech: '—',
     gloss: 'Нет в офлайн-словаре',
     note: 'Включите ИИ-ассистента в настройках, чтобы разобрать это слово.',
+  };
+}
+
+/** The bundled-only lookup: returns null when the word isn't in the glossary,
+ * so callers can decide whether to reach for a network fallback. */
+export function findWord(raw: string): WordDefinition | null {
+  const word = raw.trim();
+  const hit = INDEX.get(normalizeWord(word));
+  if (!hit) return null;
+  return {
+    word,
+    lemma: hit.lemma,
+    translit: transliterate(word),
+    partOfSpeech: hit.pos,
+    gloss: hit.gloss,
+    ...(hit.note !== undefined ? { note: hit.note } : {}),
   };
 }

@@ -191,6 +191,48 @@ export async function translateBatch(
  * the model may not know the song or may paraphrase, which is why the response
  * is surfaced to the user with a caution rather than as an authoritative source.
  */
+export interface WordSense {
+  lemma: string;
+  partOfSpeech: string;
+  gloss: string;
+  note?: string;
+}
+
+/** Parses a single-word definition reply into a WordSense, or null. */
+export function parseWordSense(raw: string): WordSense | null {
+  let value: unknown;
+  try {
+    value = extractJson(raw);
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const obj = value as { lemma?: unknown; partOfSpeech?: unknown; gloss?: unknown; note?: unknown };
+  const gloss = typeof obj.gloss === 'string' ? obj.gloss.trim() : '';
+  if (!gloss) return null;
+  return {
+    lemma: typeof obj.lemma === 'string' && obj.lemma.trim() ? obj.lemma.trim() : '',
+    partOfSpeech: typeof obj.partOfSpeech === 'string' ? obj.partOfSpeech.trim() : '',
+    gloss,
+    ...(typeof obj.note === 'string' && obj.note.trim() ? { note: obj.note.trim() } : {}),
+  };
+}
+
+/** Defines a single Russian word for a learner. Null on no key / failure. */
+export async function defineWord(word: string, targetLang: string): Promise<WordSense | null> {
+  const lang = langName(targetLang);
+  const prompt =
+    `Define the Russian word "${word}" for a ${lang}-speaking learner. ` +
+    `Return ONLY JSON: {"lemma": "<dictionary form in Russian>", ` +
+    `"partOfSpeech": "<part of speech in ${lang}>", ` +
+    `"gloss": "<short ${lang} meaning, a few words>", ` +
+    `"note": "<optional one-line usage note, or omit>"}. No commentary.`;
+
+  const raw = await generate(prompt, { json: true, temperature: 0.2 });
+  if (raw === null) return null;
+  return parseWordSense(raw);
+}
+
 export async function generateLyrics(
   query: string,
   targetLang: string,

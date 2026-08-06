@@ -4,6 +4,7 @@ import {
   extractJson,
   parseGeneratedLines,
   parseTranslations,
+  parseWordSense,
 } from './gemini.js';
 
 test('extractJson reads a bare array', () => {
@@ -68,4 +69,29 @@ test('parseGeneratedLines skips items with no usable text', () => {
 test('parseGeneratedLines returns null when nothing usable is present', () => {
   assert.equal(parseGeneratedLines('[]'), null);
   assert.equal(parseGeneratedLines('garbage'), null);
+});
+
+test('parseWordSense reads a full definition object', () => {
+  const raw = '{"lemma":"дом","partOfSpeech":"noun","gloss":"house","note":"masculine"}';
+  assert.deepEqual(parseWordSense(raw), {
+    lemma: 'дом',
+    partOfSpeech: 'noun',
+    gloss: 'house',
+    note: 'masculine',
+  });
+});
+
+test('parseWordSense omits an absent note', () => {
+  const out = parseWordSense('{"lemma":"дом","partOfSpeech":"noun","gloss":"house"}');
+  assert.deepEqual(out, { lemma: 'дом', partOfSpeech: 'noun', gloss: 'house' });
+});
+
+test('parseWordSense requires a gloss', () => {
+  assert.equal(parseWordSense('{"lemma":"дом","partOfSpeech":"noun"}'), null);
+  assert.equal(parseWordSense('{"gloss":"   "}'), null);
+});
+
+test('parseWordSense rejects a non-object reply', () => {
+  assert.equal(parseWordSense('["house"]'), null);
+  assert.equal(parseWordSense('nonsense'), null);
 });

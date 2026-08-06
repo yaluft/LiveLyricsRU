@@ -45,6 +45,12 @@ export const STRINGS = {
     'No lyrics? The AI assistant drafts and time-aligns them from a link or a title.',
   ],
   create: ['Создать', 'Create'],
+  pasteLrc: ['Вставить LRC', 'Paste LRC'],
+  pasteLrcPlaceholder: [
+    'Вставьте LRC (со строками вида [00:12.34] …) или простой текст',
+    'Paste an LRC (lines like [00:12.34] …) or plain text',
+  ],
+  apply: ['Применить', 'Apply'],
 
   nowSection: ['Сейчас', 'Now'],
   nextSection: ['Далее', 'Next'],
