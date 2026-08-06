@@ -1,4 +1,4 @@
-export type LyricSourceId = 'lrclib' | 'netease' | 'genius' | 'custom' | 'ai';
+export type LyricSourceId = 'lrclib' | 'netease' | 'musixmatch' | 'genius' | 'custom' | 'ai';
 
 export type LyricKind = 'synced' | 'plain' | 'draft';
 

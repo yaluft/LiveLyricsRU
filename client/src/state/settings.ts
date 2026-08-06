@@ -38,6 +38,7 @@ interface SettingsState {
 
 const DEFAULT_SOURCES: LyricSource[] = [
   { id: 'lrclib', enabled: true },
+  { id: 'musixmatch', enabled: true },
   { id: 'genius', enabled: true },
   { id: 'custom', enabled: false },
 ];
