@@ -102,6 +102,7 @@ export const STRINGS = {
   sourcesSection: ['Базы текстов · порядок опроса', 'Lyric sources · query order'],
   sourceLrclib: ['LRCLIB.net', 'LRCLIB.net'],
   sourceNetease: ['NetEase Cloud Music', 'NetEase Cloud Music'],
+  sourceMusixmatch: ['Musixmatch', 'Musixmatch'],
   sourceGenius: ['Genius (текст)', 'Genius (text)'],
   sourceCustom: ['Своя база (URL)', 'Custom source (URL)'],
   sourceSynced: ['синхро', 'synced'],

@@ -19,6 +19,7 @@ import { SEED_CLIPS } from '../data/feed.js';
 import { JsonStore } from '../lib/store.js';
 import { fetchLyrics } from '../services/lrclib.js';
 import { fetchLyrics as fetchNeteaseLyrics } from '../services/netease.js';
+import { fetchLyrics as fetchMusixmatchLyrics } from '../services/musixmatch.js';
 import { draftLyrics } from '../services/ai.js';
 import { geminiAvailable } from '../services/gemini.js';
 import { translateLyrics } from '../services/translation.js';
@@ -315,6 +316,13 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         if (remote) return await translateLyrics(remote);
       } catch (error) {
         request.log.warn({ err: error }, 'lrclib lookup failed');
+      }
+
+      try {
+        const musixmatch = await fetchMusixmatchLyrics(track);
+        if (musixmatch) return await translateLyrics(musixmatch);
+      } catch (error) {
+        request.log.warn({ err: error }, 'musixmatch lookup failed');
       }
 
       try {
