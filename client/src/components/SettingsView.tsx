@@ -3,7 +3,12 @@ import type { LyricSourceId, WavePreset } from '@lyrika/shared';
 import type { Lang } from '../i18n';
 import { useSettings, useT } from '../state/settings';
 import { Slider } from './Slider';
-import type { LayoutId } from '../state/settings';
+import type { BackgroundMode, LayoutId } from '../state/settings';
+
+const BG_MODES: { id: BackgroundMode; key: 'bgOcean' | 'bgVisualizer' }[] = [
+  { id: 'visualizer', key: 'bgVisualizer' },
+  { id: 'ocean', key: 'bgOcean' },
+];
 
 const PRESET_LABEL = {
   calm: 'waveCalm',
@@ -51,6 +56,18 @@ export function SettingsView(): JSX.Element {
 
       <section className="card">
         <span className="label">{t('bgSection')}</span>
+        <div className="presets">
+          {BG_MODES.map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              className={`preset${s.bgMode === mode.id ? ' is-active' : ''}`}
+              onClick={() => s.set('bgMode', mode.id)}
+            >
+              <span>{t(mode.key)}</span>
+            </button>
+          ))}
+        </div>
         <div className="presets">
           {WAVE_PRESETS.map((preset: WavePreset) => (
             <button
