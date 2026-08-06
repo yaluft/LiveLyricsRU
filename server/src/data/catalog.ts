@@ -1,5 +1,6 @@
 import type { LyricLine, Lyrics, Track } from '@lyrika/shared';
 import { splitWords, transliterate } from '../lib/transliterate.js';
+import { computeWordOffsets } from '../lib/wordTiming.js';
 
 /**
  * The demo catalogue. Titles and artists are real; every lyric line below is
@@ -17,8 +18,9 @@ interface RawLine {
 
 function buildLines(raw: RawLine[]): LyricLine[] {
   return raw.map((line, i) => {
-    const words = splitWords(line.text);
+    const words = splitWords(line.text).map((w) => w.text);
     const span = Math.max(line.end - line.time, 0.6);
+    const offsets = computeWordOffsets(words, span);
     return {
       id: `l${i}`,
       time: line.time,
@@ -26,10 +28,10 @@ function buildLines(raw: RawLine[]): LyricLine[] {
       text: line.text,
       translit: transliterate(line.text),
       translation: line.translation,
-      words: words.map((w, wi) => ({
-        text: w.text,
-        translit: transliterate(w.text),
-        offset: words.length > 1 ? (span * wi) / words.length : 0,
+      words: words.map((t, wi) => ({
+        text: t,
+        translit: transliterate(t),
+        offset: offsets[wi] ?? 0,
       })),
     };
   });

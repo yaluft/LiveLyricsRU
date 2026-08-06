@@ -1,5 +1,6 @@
 import type { LyricLine } from '@lyrika/shared';
 import { splitWords, transliterate } from './transliterate.js';
+import { computeWordOffsets } from './wordTiming.js';
 
 const TIMESTAMP_RE = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
 
@@ -38,7 +39,8 @@ export function toLyricLines(stamped: Stamped[], totalDurationSec: number): Lyri
     const next = stamped[i + 1];
     const end = next ? next.time : Math.max(line.time + 4, totalDurationSec);
     const span = Math.max(end - line.time, 0.6);
-    const words = splitWords(line.text);
+    const words = splitWords(line.text).map(w => w.text);
+    const offsets = computeWordOffsets(words, span);
     return {
       id: `l${i}`,
       time: line.time,
@@ -46,10 +48,10 @@ export function toLyricLines(stamped: Stamped[], totalDurationSec: number): Lyri
       text: line.text,
       translit: transliterate(line.text),
       translation: '',
-      words: words.map((w, wi) => ({
-        text: w.text,
-        translit: transliterate(w.text),
-        offset: words.length > 1 ? (span * wi) / words.length : 0,
+      words: words.map((t, wi) => ({
+        text: t,
+        translit: transliterate(t),
+        offset: offsets[wi] ?? 0,
       })),
     };
   });

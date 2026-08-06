@@ -1,5 +1,6 @@
 import type { AiLyricRequest, AiLyricResponse, Lyrics } from '@lyrika/shared';
 import { splitWords, transliterate } from '../lib/transliterate.js';
+import { computeWordOffsets } from '../lib/wordTiming.js';
 import { config } from '../config.js';
 import { generateLyrics, geminiAvailable, type GeneratedLine } from './gemini.js';
 
@@ -22,7 +23,8 @@ function buildLyrics(
     source: 'ai',
     sourceLabel: 'ИИ-текст (Gemini)',
     lines: generated.map((line, i) => {
-      const words = splitWords(line.text);
+      const words = splitWords(line.text).map((w) => w.text);
+      const offsets = computeWordOffsets(words, span);
       return {
         id: `l${i}`,
         time: i * span,
@@ -30,10 +32,10 @@ function buildLyrics(
         text: line.text,
         translit: request.withTranslit ? transliterate(line.text) : '',
         translation: request.withTranslation ? line.translation : '',
-        words: words.map((w, wi) => ({
-          text: w.text,
-          translit: request.withTranslit ? transliterate(w.text) : '',
-          offset: (span * wi) / Math.max(words.length, 1),
+        words: words.map((t, wi) => ({
+          text: t,
+          translit: request.withTranslit ? transliterate(t) : '',
+          offset: offsets[wi] ?? 0,
         })),
       };
     }),
@@ -56,21 +58,22 @@ function stubResponse(request: AiLyricRequest, durationSec: number): AiLyricResp
     source: 'ai',
     sourceLabel: 'ИИ-черновик (симуляция)',
     lines: stub.map((text, i) => {
-      const words = splitWords(text);
-      return {
-        id: `l${i}`,
-        time: i * span,
-        end: (i + 1) * span,
-        text,
-        translit: request.withTranslit ? transliterate(text) : '',
-        translation: '',
-        words: words.map((w, wi) => ({
-          text: w.text,
-          translit: request.withTranslit ? transliterate(w.text) : '',
-          offset: (span * wi) / Math.max(words.length, 1),
-        })),
-      };
-    }),
+    const words = splitWords(text).map((w) => w.text);
+    const offsets = computeWordOffsets(words, span);
+    return {
+      id: `l${i}`,
+      time: i * span,
+      end: (i + 1) * span,
+      text,
+      translit: request.withTranslit ? transliterate(text) : '',
+      translation: '',
+      words: words.map((t, wi) => ({
+        text: t,
+        translit: request.withTranslit ? transliterate(t) : '',
+        offset: offsets[wi] ?? 0,
+      })),
+    };
+  }),
   };
 
   return { lyrics, simulated: true, notice: SIM_NOTICE };
