@@ -327,7 +327,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // A user's pasted LRC wins over every provider.
     try {
       const custom = await getCustomLyrics(trackId);
-      if (custom) return await translateLyrics(custom);
+      if (custom) return await translateLyrics(custom, request.log);
     } catch (error) {
       request.log.warn({ err: error }, 'custom lyrics load failed');
     }
@@ -335,21 +335,21 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (track.artist) {
       try {
         const remote = await fetchLyrics(track);
-        if (remote) return await translateLyrics(remote);
+        if (remote) return await translateLyrics(remote, request.log);
       } catch (error) {
         request.log.warn({ err: error }, 'lrclib lookup failed');
       }
 
       try {
         const musixmatch = await fetchMusixmatchLyrics(track);
-        if (musixmatch) return await translateLyrics(musixmatch);
+        if (musixmatch) return await translateLyrics(musixmatch, request.log);
       } catch (error) {
         request.log.warn({ err: error }, 'musixmatch lookup failed');
       }
 
       try {
         const netease = await fetchNeteaseLyrics(track);
-        if (netease) return await translateLyrics(netease);
+        if (netease) return await translateLyrics(netease, request.log);
       } catch (error) {
         request.log.warn({ err: error }, 'netease lookup failed');
       }
@@ -389,7 +389,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         hint: 'Проверьте, что это текст песни, по строке на строку.',
       });
     }
-    return await translateLyrics(lyrics);
+    return await translateLyrics(lyrics, request.log);
   });
 
   app.delete('/api/lyrics/custom/:trackId', async (request) => {

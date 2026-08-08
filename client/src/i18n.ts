@@ -102,6 +102,7 @@ export const STRINGS = {
   bgFieldLines: ['Магнитное поле', 'Field lines'],
   bgRefraction: ['Рефракция', 'Refraction'],
   bgFracture: ['Разлом', 'Fracture'],
+  bgNeural: ['Нейросеть', 'Neural network'],
   waveCalm: ['Штиль', 'Calm'],
   waveSurf: ['Прибой', 'Surf'],
   waveNight: ['Ночь', 'Night'],
@@ -190,6 +191,7 @@ export const STRINGS = {
   noTranslation: ['перевод недоступен', 'no translation available'],
   nothingPlaying: ['Ничего не играет', 'Nothing is playing'],
   openSearch: ['Открыть поиск', 'Open search'],
+  resumeFollowing: ['↓ Вернуться к строке', '↓ Resume following'],
 } as const satisfies Record<string, Pair>;
 
 export type StringKey = keyof typeof STRINGS;

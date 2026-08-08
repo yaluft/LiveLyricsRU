@@ -7,13 +7,14 @@ import type { BackgroundMode, LayoutId } from '../state/settings';
 
 const BG_MODES: {
   id: BackgroundMode;
-  key: 'bgOcean' | 'bgVisualizer' | 'bgFieldLines' | 'bgRefraction' | 'bgFracture';
+  key: 'bgOcean' | 'bgVisualizer' | 'bgFieldLines' | 'bgRefraction' | 'bgFracture' | 'bgNeural';
 }[] = [
   { id: 'visualizer', key: 'bgVisualizer' },
   { id: 'ocean', key: 'bgOcean' },
   { id: 'fieldlines', key: 'bgFieldLines' },
   { id: 'refraction', key: 'bgRefraction' },
   { id: 'fracture', key: 'bgFracture' },
+  { id: 'neural', key: 'bgNeural' },
 ];
 
 const PRESET_LABEL = {

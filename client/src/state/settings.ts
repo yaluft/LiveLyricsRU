@@ -5,7 +5,13 @@ import type { Lang, StringKey } from '../i18n';
 import { translate } from '../i18n';
 
 export type LayoutId = 'stage' | 'studio';
-export type BackgroundMode = 'ocean' | 'visualizer' | 'fieldlines' | 'refraction' | 'fracture';
+export type BackgroundMode =
+  | 'ocean'
+  | 'visualizer'
+  | 'fieldlines'
+  | 'refraction'
+  | 'fracture'
+  | 'neural';
 
 export interface LyricSource {
   id: LyricSourceId;

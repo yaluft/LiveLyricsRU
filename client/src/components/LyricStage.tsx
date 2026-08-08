@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { CLIP_WINDOW_SEC } from '@lyrika/shared';
 import { activeLineIndex, activeWordIndex, cycleRate, usePlayer } from '../state/player';
@@ -13,7 +13,10 @@ interface Props {
   variant: StageVariant;
 }
 
-const VISIBLE_RADIUS = 2;
+// How long a manual scroll suspends auto-follow before it resumes on its own.
+const RESUME_DELAY_MS = 4000;
+// How close (px) a manual scroll has to land to the active line to resume immediately.
+const RESUME_PROXIMITY_PX = 40;
 
 function fadeFor(distance: number): number {
   if (distance === 1) return 0.52;
@@ -45,6 +48,13 @@ export function LyricStage({ variant }: Props): JSX.Element {
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [pasting, setPasting] = useState(false);
   const [lrcDraft, setLrcDraft] = useState('');
+  const [autoFollow, setAutoFollow] = useState(true);
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  const activeLineRef = useRef<HTMLDivElement>(null);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const programmaticScrollRef = useRef(false);
+  const programmaticTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const lineIndex = activeLineIndex(lyrics, position);
   const wordIndex = activeWordIndex(lyrics, lineIndex, position);
@@ -56,13 +66,53 @@ export function LyricStage({ variant }: Props): JSX.Element {
     setPasting(false);
     setLrcDraft('');
   }, [track?.id]);
+  useEffect(() => setAutoFollow(true), [track?.id]);
 
-  const window_ = useMemo(() => {
-    if (!lyrics?.lines.length) return [];
-    const from = Math.max(0, lineIndex - VISIBLE_RADIUS);
-    const to = Math.min(lyrics.lines.length, lineIndex + VISIBLE_RADIUS + 1);
-    return lyrics.lines.slice(from, to).map((line, i) => ({ line, index: from + i }));
-  }, [lyrics, lineIndex]);
+  function targetScrollTop(): number | null {
+    const panel = panelRef.current;
+    const el = activeLineRef.current;
+    if (!panel || !el) return null;
+    return Math.max(0, el.offsetTop - panel.clientHeight / 2 + el.clientHeight / 2);
+  }
+
+  // Follows the active line unless the reader has scrolled away to reread —
+  // a manual scroll suspends this until they scroll back or it times out.
+  useEffect(() => {
+    if (!autoFollow) return;
+    const panel = panelRef.current;
+    const target = targetScrollTop();
+    if (!panel || target === null) return;
+    programmaticScrollRef.current = true;
+    panel.scrollTo({ top: target, behavior: 'smooth' });
+    clearTimeout(programmaticTimerRef.current);
+    programmaticTimerRef.current = setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, 500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lineIndex, autoFollow]);
+
+  useEffect(
+    () => () => {
+      clearTimeout(resumeTimerRef.current);
+      clearTimeout(programmaticTimerRef.current);
+    },
+    [],
+  );
+
+  function handlePanelScroll(): void {
+    if (programmaticScrollRef.current) return;
+    const panel = panelRef.current;
+    const target = targetScrollTop();
+    if (!panel || target === null) return;
+    if (Math.abs(panel.scrollTop - target) < RESUME_PROXIMITY_PX) {
+      setAutoFollow(true);
+      clearTimeout(resumeTimerRef.current);
+      return;
+    }
+    setAutoFollow(false);
+    clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => setAutoFollow(true), RESUME_DELAY_MS);
+  }
 
   const panelStyle = { backdropFilter: `blur(${lyricBlur}px)` };
 
@@ -169,7 +219,12 @@ export function LyricStage({ variant }: Props): JSX.Element {
 
   return (
     <div className={`lyricstage lyricstage--${variant}`}>
-      <div className="lyricstage__panel" style={panelStyle}>
+      <div
+        className="lyricstage__panel"
+        style={panelStyle}
+        ref={panelRef}
+        onScroll={handlePanelScroll}
+      >
         <div className="lyricstage__toolbar">
           {lyrics.kind === 'draft' ? (
             <span className="lyricstage__draft mono">
@@ -223,11 +278,11 @@ export function LyricStage({ variant }: Props): JSX.Element {
             </div>
           </div>
         ) : (
-          window_.map(({ line, index }) => {
+          lyrics.lines.map((line, index) => {
           const distance = Math.abs(index - lineIndex);
           if (index === lineIndex) {
             return (
-              <div className="lyricline lyricline--active" key={line.id}>
+              <div className="lyricline lyricline--active" key={line.id} ref={activeLineRef}>
                 <div className="lyricline__words">
                   {line.words.map((word, i) => {
                     const isActive = i === wordIndex;
@@ -354,6 +409,16 @@ export function LyricStage({ variant }: Props): JSX.Element {
           );
           })
         )}
+
+        {!autoFollow && !pasting ? (
+          <button
+            type="button"
+            className="lyricstage__resume"
+            onClick={() => setAutoFollow(true)}
+          >
+            {t('resumeFollowing')}
+          </button>
+        ) : null}
       </div>
     </div>
   );

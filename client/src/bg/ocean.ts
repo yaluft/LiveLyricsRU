@@ -9,12 +9,14 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { WaveTheme } from '@lyrika/shared';
-import { audioLevel } from '../audio/level';
+import { audioSpectrum } from '../audio/level';
 
 const VERTEX = /* glsl */ `
   uniform float uTime;
   uniform float uHeight;
-  uniform float uLevel;
+  uniform float uBass;
+  uniform float uMid;
+  uniform float uTreble;
 
   varying vec3 vWorld;
   varying float vCrest;
@@ -28,15 +30,22 @@ const VERTEX = /* glsl */ `
     vec2 p = pos.xz;
     float t = uTime;
 
-    float h = 0.0;
-    h += ridge(p, normalize(vec2(1.0, 0.32)), 0.085, 0.85, t) * 1.0;
-    h += ridge(p, normalize(vec2(-0.55, 1.0)), 0.145, 1.15, t) * 0.58;
-    h += ridge(p, normalize(vec2(0.4, -0.9)), 0.27, 1.65, t) * 0.28;
-    h += ridge(p, normalize(vec2(1.0, 1.0)), 0.52, 2.4, t) * 0.12;
+    // Each ridge layer answers to a different band, so the surface separates
+    // into a slow bass swell, a mid-layer ripple and a fine treble chop
+    // instead of breathing as one uniform pulse.
+    float hBass = ridge(p, normalize(vec2(1.0, 0.32)), 0.085, 0.85, t) * 1.0;
+    float hMid = ridge(p, normalize(vec2(-0.55, 1.0)), 0.145, 1.15, t) * 0.58;
+    float hMid2 = ridge(p, normalize(vec2(0.4, -0.9)), 0.27, 1.65, t) * 0.28;
+    float hTreble = ridge(p, normalize(vec2(1.0, 1.0)), 0.52, 2.4, t) * 0.12;
 
-    float amp = uHeight * (0.7 + uLevel * 1.1);
-    pos.y += h * amp;
+    float bassAmp = uHeight * (0.55 + uBass * 1.4);
+    float midAmp = uHeight * (0.6 + uMid * 1.2);
+    float trebleAmp = uHeight * (0.5 + uTreble * 1.6);
 
+    float dy = hBass * bassAmp + (hMid + hMid2) * midAmp + hTreble * trebleAmp;
+    pos.y += dy;
+
+    float h = hBass + hMid + hMid2 + hTreble;
     vCrest = clamp(h * 0.5 + 0.5, 0.0, 1.0);
     vec4 world = modelMatrix * vec4(pos, 1.0);
     vWorld = world.xyz;
@@ -51,7 +60,7 @@ const FRAGMENT = /* glsl */ `
   uniform vec3 uSurface;
   uniform vec3 uAtmosphere;
   uniform vec3 uCamera;
-  uniform float uLevel;
+  uniform float uTreble;
 
   varying vec3 vWorld;
   varying float vCrest;
@@ -74,7 +83,9 @@ const FRAGMENT = /* glsl */ `
     // column has to stay legible on top of it.
     vec3 color = mix(uFog, uSurface, clamp(vCrest * 0.5 + diffuse * 0.22, 0.0, 1.0));
     color = mix(color, uAtmosphere, fresnel * 0.22);
-    color += uAtmosphere * spec * (0.22 + uLevel * 0.45);
+    // Specular glint reacts to treble/hi-hats specifically, so cymbal hits
+    // flare across the crests instead of the whole surface flashing at once.
+    color += uAtmosphere * spec * (0.18 + uTreble * 0.6);
     color += uAtmosphere * pow(vCrest, 8.0) * 0.12;
 
     // Fade the far field into the CSS sky so there is no hard horizon seam.
@@ -92,6 +103,21 @@ export interface OceanOptions {
   reactivity: number;
 }
 
+// Bin ranges within the shared 64-bin spectrum (see client/src/audio/level.ts).
+const BASS_RANGE: [number, number] = [0, 8];
+const MID_RANGE: [number, number] = [9, 24];
+const TREBLE_RANGE: [number, number] = [25, 63];
+
+function bandMean(bins: Uint8Array, [from, to]: [number, number]): number {
+  let sum = 0;
+  let count = 0;
+  for (let i = from; i <= to && i < bins.length; i += 1) {
+    sum += bins[i] ?? 0;
+    count += 1;
+  }
+  return count ? sum / count / 255 : 0;
+}
+
 export class OceanRenderer {
   #renderer: WebGLRenderer;
   #scene = new Scene();
@@ -99,7 +125,9 @@ export class OceanRenderer {
   #material: ShaderMaterial;
   #frame = 0;
   #start = performance.now();
-  #level = 0;
+  #bass = 0;
+  #mid = 0;
+  #treble = 0;
   #reactivity: number;
   #disposed = false;
 
@@ -132,7 +160,9 @@ export class OceanRenderer {
       uniforms: {
         uTime: { value: 0 },
         uHeight: { value: options.waveHeight },
-        uLevel: { value: 0 },
+        uBass: { value: 0 },
+        uMid: { value: 0 },
+        uTreble: { value: 0 },
         uFog: { value: new Color(options.theme.fog) },
         uSurface: { value: new Color(options.theme.surface) },
         uAtmosphere: { value: new Color(options.theme.atmosphere) },
@@ -176,12 +206,21 @@ export class OceanRenderer {
     if (this.#disposed) return;
     this.#frame = requestAnimationFrame(this.#loop);
 
-    const target = audioLevel.value * this.#reactivity;
-    // Ease toward the target so a spiky analyser reading never jolts the water.
-    this.#level += (target - this.#level) * 0.08;
+    const bins = audioSpectrum.bins;
+    const bassTarget = bandMean(bins, BASS_RANGE) * this.#reactivity;
+    const midTarget = bandMean(bins, MID_RANGE) * this.#reactivity;
+    const trebleTarget = bandMean(bins, TREBLE_RANGE) * this.#reactivity;
+
+    // Ease toward each band's target so a spiky analyser reading never jolts
+    // the water — treble eases faster so hi-hats still read as snappy.
+    this.#bass += (bassTarget - this.#bass) * 0.06;
+    this.#mid += (midTarget - this.#mid) * 0.08;
+    this.#treble += (trebleTarget - this.#treble) * 0.16;
 
     this.#material.uniforms.uTime!.value = (performance.now() - this.#start) / 1000;
-    this.#material.uniforms.uLevel!.value = this.#level;
+    this.#material.uniforms.uBass!.value = this.#bass;
+    this.#material.uniforms.uMid!.value = this.#mid;
+    this.#material.uniforms.uTreble!.value = this.#treble;
     this.#renderer.render(this.#scene, this.#camera);
   };
 }

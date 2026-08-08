@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="100" viewBox="0 0 720 100" role="img" aria-label="Lyrika project stats">
+  <style>
+    .bg { fill: #001322; }
+    .value { font: 700 30px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #4fd2ff; }
+    .label { font: 400 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #8fb9cc; }
+    .divider { stroke: rgba(120, 215, 255, 0.18); stroke-width: 1; }
+    .frame { fill: none; stroke: rgba(120, 215, 255, 0.18); stroke-width: 1; }
+  </style>
+  <rect class="bg" width="720" height="100" rx="14" />
+  <rect class="frame" x="0.5" y="0.5" width="719" height="99" rx="14" />
+  <line x1="240" y1="24" x2="240" y2="76" class="divider" /><line x1="480" y1="24" x2="480" y2="76" class="divider" />
+  
+    <g>
+      <text x="120.0" y="54" text-anchor="middle" class="value">12</text>
+      <text x="120.0" y="76" text-anchor="middle" class="label">demo songs</text>
+    </g>
+    
+    <g>
+      <text x="360.0" y="54" text-anchor="middle" class="value">68</text>
+      <text x="360.0" y="76" text-anchor="middle" class="label">starter dictionary words</text>
+    </g>
+    
+    <g>
+      <text x="600.0" y="54" text-anchor="middle" class="value">3</text>
+      <text x="600.0" y="76" text-anchor="middle" class="label">live lyrics sources</text>
+    </g>
+    
+</svg>

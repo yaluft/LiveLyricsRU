@@ -4,6 +4,10 @@ import { config } from '../config.js';
 import { JsonStore } from '../lib/store.js';
 import { geminiAvailable, translateBatch } from './gemini.js';
 
+interface TranslateLogger {
+  warn(obj: Record<string, unknown>, msg: string): void;
+}
+
 /**
  * Fills in `line.translation` for lyrics that arrive without one (LRCLIB and
  * NetEase return the original text only). Translations are cached by a hash of
@@ -20,7 +24,7 @@ function cacheKey(text: string, lang: string): string {
   return `${lang}:${createHash('sha1').update(text).digest('hex')}`;
 }
 
-export async function translateLyrics(lyrics: Lyrics): Promise<Lyrics> {
+export async function translateLyrics(lyrics: Lyrics, logger?: TranslateLogger): Promise<Lyrics> {
   if (!geminiAvailable()) return lyrics;
 
   const lang = config.translateTargetLang;
@@ -46,7 +50,8 @@ export async function translateLyrics(lyrics: Lyrics): Promise<Lyrics> {
       pending.map((p) => p.text),
       lang,
     );
-  } catch {
+  } catch (err) {
+    logger?.warn({ err }, 'gemini translate failed');
     translated = null;
   }
   if (!translated) return { ...lyrics, lines };

@@ -8,6 +8,7 @@ import { Visualizer } from './components/Visualizer';
 import { FieldLinesBackground } from './components/FieldLinesBackground';
 import { RefractionBackground } from './components/RefractionBackground';
 import { FractureBackground } from './components/FractureBackground';
+import { NeuralBackground } from './components/NeuralBackground';
 import { SearchOverlay } from './components/SearchOverlay';
 import { StageLayout } from './components/StageLayout';
 import { StudioLayout } from './components/StudioLayout';
@@ -71,6 +72,8 @@ export function App(): JSX.Element {
         <RefractionBackground />
       ) : bgMode === 'fracture' ? (
         <FractureBackground />
+      ) : bgMode === 'neural' ? (
+        <NeuralBackground />
       ) : (
         <OceanBackground />
       )}
