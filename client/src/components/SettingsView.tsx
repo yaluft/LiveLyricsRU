@@ -5,9 +5,15 @@ import { useSettings, useT } from '../state/settings';
 import { Slider } from './Slider';
 import type { BackgroundMode, LayoutId } from '../state/settings';
 
-const BG_MODES: { id: BackgroundMode; key: 'bgOcean' | 'bgVisualizer' }[] = [
+const BG_MODES: {
+  id: BackgroundMode;
+  key: 'bgOcean' | 'bgVisualizer' | 'bgFieldLines' | 'bgRefraction' | 'bgFracture';
+}[] = [
   { id: 'visualizer', key: 'bgVisualizer' },
   { id: 'ocean', key: 'bgOcean' },
+  { id: 'fieldlines', key: 'bgFieldLines' },
+  { id: 'refraction', key: 'bgRefraction' },
+  { id: 'fracture', key: 'bgFracture' },
 ];
 
 const PRESET_LABEL = {

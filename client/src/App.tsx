@@ -5,6 +5,9 @@ import { Landing } from './components/Landing';
 import { MobileShell } from './components/MobileShell';
 import { OceanBackground } from './components/OceanBackground';
 import { Visualizer } from './components/Visualizer';
+import { FieldLinesBackground } from './components/FieldLinesBackground';
+import { RefractionBackground } from './components/RefractionBackground';
+import { FractureBackground } from './components/FractureBackground';
 import { SearchOverlay } from './components/SearchOverlay';
 import { StageLayout } from './components/StageLayout';
 import { StudioLayout } from './components/StudioLayout';
@@ -60,7 +63,17 @@ export function App(): JSX.Element {
 
   return (
     <div className="app">
-      {bgMode === 'visualizer' ? <Visualizer /> : <OceanBackground />}
+      {bgMode === 'visualizer' ? (
+        <Visualizer />
+      ) : bgMode === 'fieldlines' ? (
+        <FieldLinesBackground />
+      ) : bgMode === 'refraction' ? (
+        <RefractionBackground />
+      ) : bgMode === 'fracture' ? (
+        <FractureBackground />
+      ) : (
+        <OceanBackground />
+      )}
 
       <div className="app__content">
         {isMobile ? (

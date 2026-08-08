@@ -7,6 +7,14 @@ services:
       SERVE_CLIENT: "true"
       CORS_ORIGIN: "*"
       LOG_LEVEL: info
+      # Pulled from a root .env via compose's own variable interpolation (not
+      # env_file:, which would also drag in CLIENT_DIR/DATA_DIR — dev-relative
+      # paths that don't resolve the same way inside this container's layout).
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-}
+      GEMINI_TIMEOUT_MS: ${GEMINI_TIMEOUT_MS:-}
+      TRANSLATE_TARGET_LANG: ${TRANSLATE_TARGET_LANG:-}
     volumes:
       - lyrika-data:/app/.data
       - ./cookies.txt:/app/cookies.txt:ro
