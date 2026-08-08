@@ -52,6 +52,10 @@ export function LyricStage({ variant }: Props): JSX.Element {
   // A lookup survives the line advancing — dismissing it is the reader's call,
   // not the playhead's. Only a track change clears it.
   useEffect(() => setSelectedWord(null), [track?.id]);
+  useEffect(() => {
+    setPasting(false);
+    setLrcDraft('');
+  }, [track?.id]);
 
   const window_ = useMemo(() => {
     if (!lyrics?.lines.length) return [];
@@ -166,13 +170,60 @@ export function LyricStage({ variant }: Props): JSX.Element {
   return (
     <div className={`lyricstage lyricstage--${variant}`}>
       <div className="lyricstage__panel" style={panelStyle}>
-        {lyrics.kind === 'draft' ? (
-          <span className="lyricstage__draft mono">
-            {t('draftBadge')} · {lyrics.sourceLabel}
-          </span>
-        ) : null}
+        <div className="lyricstage__toolbar">
+          {lyrics.kind === 'draft' ? (
+            <span className="lyricstage__draft mono">
+              {t('draftBadge')} · {lyrics.sourceLabel}
+            </span>
+          ) : (
+            <span className="lyricstage__source mono">{lyrics.sourceLabel}</span>
+          )}
+          <button
+            type="button"
+            className="btn btn--ghost lyricstage__fixsync"
+            onClick={() => setPasting((p) => !p)}
+          >
+            {pasting ? t('cancel') : `✎ ${t('pasteLrc')}`}
+          </button>
+        </div>
 
-        {window_.map(({ line, index }) => {
+        {pasting ? (
+          <div className="lrc-paste">
+            <textarea
+              className="lrc-paste__area mono"
+              value={lrcDraft}
+              onChange={(event) => setLrcDraft(event.target.value)}
+              placeholder={t('pasteLrcPlaceholder')}
+              rows={6}
+              autoFocus
+            />
+            <div className="lrc-paste__actions">
+              <button
+                type="button"
+                className="btn btn--accent"
+                disabled={!lrcDraft.trim()}
+                onClick={() => {
+                  void applyCustomLrc(lrcDraft);
+                  setPasting(false);
+                  setLrcDraft('');
+                }}
+              >
+                {t('apply')}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  setPasting(false);
+                  setLrcDraft('');
+                }}
+              >
+                {t('cancel')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          window_.map(({ line, index }) => {
           const distance = Math.abs(index - lineIndex);
           if (index === lineIndex) {
             return (
@@ -301,7 +352,8 @@ export function LyricStage({ variant }: Props): JSX.Element {
               <span className="lyricline__text">{line.text}</span>
             </button>
           );
-        })}
+          })
+        )}
       </div>
     </div>
   );

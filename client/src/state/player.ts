@@ -135,7 +135,12 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
         })(),
       });
 
-      await engine.play();
+      // Not awaited: autoplay can be blocked by the browser, or this play()
+      // can be interrupted by a newer playTrack() call reassigning the same
+      // <audio> element's source, which rejects the promise. Neither means
+      // the stream failed — resolve already succeeded above — and neither
+      // should block lyrics/artist from loading below.
+      engine.play().catch(() => {});
 
       void api
         .lyrics(finalTrack)

@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { isUsableCookiesFile } from './ytdlp.js';
+import { cleanArtist, isUsableCookiesFile } from './ytdlp.js';
 
 test('isUsableCookiesFile accepts a regular file', () => {
   const dir = mkdtempSync(join(tmpdir(), 'lyrika-cookies-'));
@@ -29,4 +29,20 @@ test('isUsableCookiesFile rejects a directory (the empty-bind-mount case)', () =
 
 test('isUsableCookiesFile rejects a path that does not exist', () => {
   assert.equal(isUsableCookiesFile('/nonexistent/path/cookies.txt'), false);
+});
+
+test('cleanArtist strips a YouTube auto-generated "- Topic" channel suffix', () => {
+  assert.equal(cleanArtist("5'nizza - Topic"), "5'nizza");
+  assert.equal(cleanArtist('Земфира - Topic'), 'Земфира');
+  assert.equal(cleanArtist('Земфира -Topic'), 'Земфира');
+});
+
+test('cleanArtist leaves a normal artist name unchanged', () => {
+  assert.equal(cleanArtist('Земфира'), 'Земфира');
+  assert.equal(cleanArtist('Guns N\' Roses'), 'Guns N\' Roses');
+});
+
+test('cleanArtist does not touch "Topic" as part of a real name', () => {
+  assert.equal(cleanArtist('Topic'), 'Topic');
+  assert.equal(cleanArtist('Not a Topic'), 'Not a Topic');
 });

@@ -139,13 +139,26 @@ function parseJsonLines(stdout: string): YtDlpEntry[] {
   return out;
 }
 
+/**
+ * YouTube's auto-generated "Topic" channels (used for music uploads with no
+ * official channel) report their name as "{Artist} - Topic" in the
+ * uploader/channel metadata yt-dlp falls back to when there's no explicit
+ * `artist` tag. That literal " - Topic" suffix then gets sent to lyric
+ * providers (LRCLIB, Musixmatch, NetEase) as the artist and never matches
+ * anything — stripping it is what turns a lyrics search miss (or a
+ * lower-quality plain-text-only fallback) into a real synced match.
+ */
+export function cleanArtist(name: string): string {
+  return name.replace(/\s*-\s*Topic$/i, '').trim() || name;
+}
+
 function toTrack(entry: YtDlpEntry, provider: StreamProvider): Track | null {
   const id = entry.id;
   if (!id) return null;
   return {
     id: `${provider}:${id}`,
     title: entry.title ?? 'Без названия',
-    artist: entry.artist ?? entry.uploader ?? entry.channel ?? 'Неизвестный исполнитель',
+    artist: cleanArtist(entry.artist ?? entry.uploader ?? entry.channel ?? 'Неизвестный исполнитель'),
     ...(entry.album !== undefined ? { album: entry.album } : {}),
     durationSec: Math.round(entry.duration ?? 0),
     provider,
