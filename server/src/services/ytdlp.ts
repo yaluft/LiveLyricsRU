@@ -119,6 +119,7 @@ interface YtDlpEntry {
   album?: string;
   duration?: number;
   thumbnail?: string;
+  thumbnails?: { url?: string }[];
   url?: string;
   abr?: number;
   ext?: string;
@@ -152,9 +153,22 @@ export function cleanArtist(name: string): string {
   return name.replace(/\s*-\s*Topic$/i, '').trim() || name;
 }
 
+/**
+ * `--flat-playlist` search results (searchTracks) never carry the singular
+ * `thumbnail` field — only full per-video extraction (resolveViaYtDlp) does.
+ * Flat entries instead carry a `thumbnails` array; the last entry is yt-dlp's
+ * highest-resolution one.
+ */
+export function pickThumbnail(entry: YtDlpEntry): string | undefined {
+  if (entry.thumbnail) return entry.thumbnail;
+  const list = entry.thumbnails;
+  return list?.length ? (list[list.length - 1]?.url ?? list[0]?.url) : undefined;
+}
+
 function toTrack(entry: YtDlpEntry, provider: StreamProvider): Track | null {
   const id = entry.id;
   if (!id) return null;
+  const artworkUrl = pickThumbnail(entry);
   return {
     id: `${provider}:${id}`,
     title: entry.title ?? 'Без названия',
@@ -163,7 +177,7 @@ function toTrack(entry: YtDlpEntry, provider: StreamProvider): Track | null {
     durationSec: Math.round(entry.duration ?? 0),
     provider,
     providerId: id,
-    ...(entry.thumbnail !== undefined ? { artworkUrl: entry.thumbnail } : {}),
+    ...(artworkUrl !== undefined ? { artworkUrl } : {}),
     hasSyncedLyrics: false,
   };
 }

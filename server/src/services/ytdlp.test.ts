@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { cleanArtist, isUsableCookiesFile } from './ytdlp.js';
+import { cleanArtist, isUsableCookiesFile, pickThumbnail } from './ytdlp.js';
 
 test('isUsableCookiesFile accepts a regular file', () => {
   const dir = mkdtempSync(join(tmpdir(), 'lyrika-cookies-'));
@@ -45,4 +45,25 @@ test('cleanArtist leaves a normal artist name unchanged', () => {
 test('cleanArtist does not touch "Topic" as part of a real name', () => {
   assert.equal(cleanArtist('Topic'), 'Topic');
   assert.equal(cleanArtist('Not a Topic'), 'Not a Topic');
+});
+
+test('pickThumbnail prefers the singular field from full extraction', () => {
+  assert.equal(
+    pickThumbnail({ thumbnail: 'https://full.example/t.jpg', thumbnails: [{ url: 'https://flat.example/t.jpg' }] }),
+    'https://full.example/t.jpg',
+  );
+});
+
+test('pickThumbnail falls back to the last (highest-res) entry of a flat-playlist thumbnails array', () => {
+  assert.equal(
+    pickThumbnail({
+      thumbnails: [{ url: 'https://example/small.jpg' }, { url: 'https://example/large.jpg' }],
+    }),
+    'https://example/large.jpg',
+  );
+});
+
+test('pickThumbnail returns undefined when neither field is present', () => {
+  assert.equal(pickThumbnail({}), undefined);
+  assert.equal(pickThumbnail({ thumbnails: [] }), undefined);
 });

@@ -5,6 +5,7 @@ import { useSettings, useT } from '../state/settings';
 import { useUi } from '../state/ui';
 import { formatRemaining, formatTime } from '../utils';
 import { useEscape } from '../useEscape';
+import { Artwork } from './Artwork';
 import { ClipsView } from './ClipsView';
 import { DisplayMenu } from './DisplayMenu';
 import { LangSwitch } from './LangSwitch';
@@ -94,7 +95,7 @@ export function StageLayout(): JSX.Element {
     <div className="stage">
       <header className="stage__chrome">
         <div className="stage__now">
-          <div className="art stage__art" />
+          <Artwork url={track?.artworkUrl} className="stage__art" alt={track?.title} />
           <div className="stage__nowtext">
             <span className="stage__title">{track?.title ?? t('appName')}</span>
             <span className="stage__sub">

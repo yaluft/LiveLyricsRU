@@ -5,6 +5,7 @@ import { useT } from '../state/settings';
 import { useUi } from '../state/ui';
 import { formatTime } from '../utils';
 import { ArtistPanel } from './ArtistPanel';
+import { Artwork } from './Artwork';
 import { LyricStage } from './LyricStage';
 import { QueueView } from './QueueView';
 import { Seekbar } from './Seekbar';
@@ -80,7 +81,7 @@ export function StudioLayout(): JSX.Element {
 
       <footer className="studiodock">
         <div className="studiodock__now">
-          <div className="art studiodock__art" />
+          <Artwork url={track?.artworkUrl} className="studiodock__art" alt={track?.title} />
           <div className="studiodock__meta">
             <span className="studiodock__title">{track?.title ?? t('nothingPlaying')}</span>
             <span className="studiodock__artist">{track?.artist ?? '—'}</span>

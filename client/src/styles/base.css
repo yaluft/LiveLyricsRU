@@ -96,6 +96,7 @@ a {
     rgba(120, 215, 255, 0.05) 5px 10px
   );
   flex-shrink: 0;
+  object-fit: cover;
 }
 
 .eq {

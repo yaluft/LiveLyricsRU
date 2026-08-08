@@ -176,7 +176,6 @@
 }
 
 .word--active .word__text {
-  font-size: 50px;
   font-weight: 700;
   color: var(--highlight);
   text-shadow:
@@ -244,7 +243,6 @@
 }
 
 .lyricstage--studio .word--active .word__text {
-  font-size: 41px;
   text-shadow: 0 0 26px rgba(79, 210, 255, 0.6);
 }
 
@@ -295,7 +293,6 @@
 }
 
 .lyricstage--mobile .word--active .word__text {
-  font-size: 30px;
   text-shadow: 0 0 22px rgba(79, 210, 255, 0.6);
 }
 

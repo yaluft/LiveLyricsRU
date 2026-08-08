@@ -6,6 +6,7 @@ import { useT } from '../state/settings';
 import { formatTime } from '../utils';
 import { LangSwitch } from './LangSwitch';
 import { Icon } from './Icon';
+import { Artwork } from './Artwork';
 
 const SUGGESTIONS = ['Сплин — Выхода нет', 'Кино — Группа крови', 'Земфира'];
 
@@ -105,7 +106,7 @@ export function Landing(): JSX.Element {
                   className="landing__card"
                   onClick={() => void playTrack(item)}
                 >
-                  <div className="art landing__cardart" />
+                  <Artwork url={item.artworkUrl} className="landing__cardart" alt={item.title} />
                   <div className="landing__cardmeta">
                     <span className="landing__cardtitle">{item.title}</span>
                     <span className="landing__cardsub">{formatTime(item.durationSec)}</span>
