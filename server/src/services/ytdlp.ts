@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import type { ResolvedStream, StreamProvider, Track } from '@lyrika/shared';
 import { config } from '../config.js';
 import { checkMediaUrl } from './urlGuard.js';
@@ -29,17 +29,45 @@ export class ResolveFailed extends Error {
 
 let availability: Promise<boolean> | null = null;
 
+/**
+ * True when `path` exists and is a regular file. A Docker bind mount of a
+ * missing host file materializes as an empty directory, so `existsSync` alone
+ * isn't enough — passing a directory to `--cookies` makes yt-dlp fail
+ * outright, and every search/resolve call with it degrades to the demo
+ * catalogue.
+ */
+export function isUsableCookiesFile(path: string): boolean {
+  try {
+    return existsSync(path) && statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolves the mounted cookies path only if it's a usable file. Note
+ * `--cookies-from-browser firefox` doesn't belong here at all: that reads a
+ * live Firefox profile, which a headless container never has, and its
+ * failure previously aborted the whole call even when a valid `--cookies`
+ * file was also given.
+ */
+function resolvedCookiesPath(): string | undefined {
+  const cookiesPath = '/app/cookies.txt';
+  return isUsableCookiesFile(cookiesPath) ? cookiesPath : undefined;
+}
+
+export function cookiesConfigured(): boolean {
+  return resolvedCookiesPath() !== undefined;
+}
+
 function buildArgs(baseArgs: string[]): string[] {
   const args = [...baseArgs];
-  // Insert cookies flags before the final "--" separator (if present),
-  // otherwise append them at the end. Placing them after a trailing `--`
-  // would make yt-dlp treat them as download URLs.
-  // Only add cookies flags when a cookies file actually exists in the app
-  // data dir. Guarding prevents yt-dlp from attempting to write to a
-  // non-existent path (which causes a FileNotFoundError inside yt-dlp).
-  const cookiesPath = '/app/cookies.txt';
-  if (existsSync(cookiesPath)) {
-    const cookiesArgs = ['--cookies-from-browser', 'firefox', '--cookies', cookiesPath];
+  const cookiesPath = resolvedCookiesPath();
+  if (cookiesPath) {
+    // Insert before the final "--" separator (if present), otherwise append
+    // at the end. Placing it after a trailing `--` would make yt-dlp treat it
+    // as a download URL.
+    const cookiesArgs = ['--cookies', cookiesPath];
     const sepIndex = args.lastIndexOf('--');
     const insertAt = sepIndex >= 0 ? sepIndex : args.length;
     args.splice(insertAt, 0, ...cookiesArgs);
