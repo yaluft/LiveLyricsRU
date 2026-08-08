@@ -479,10 +479,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 [ar:${artist || 'Unknown'}]
 [by:Gemini LRC Generator]
 
-[00:12.50] 夢ならばどれほどよかったでしょう
-[00:12.50] [Pronunciation]: Yume naraba dore hodo yokatta deshou
-[00:12.50] [EN]: How wonderful it would be if it were all a dream
-[00:12.50] [RU]: Как было бы хорошо, если бы это оказалось сном
+[00:12.50] Черновая строка ещё не расшифрована
+[00:16.20] Вторая строка появится здесь
 `;
       return { lrc: sample };
     }

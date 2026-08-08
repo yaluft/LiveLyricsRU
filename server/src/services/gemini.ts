@@ -269,9 +269,41 @@ export async function generateLyrics(
 export interface LrcLine {
   timestamp: string; // MM:SS.cc
   original: string;
-  pronunciation?: string;
-  english?: string;
-  russian?: string;
+}
+
+/**
+ * Parses a generateLrc reply into timestamp/original pairs, or null on any
+ * shape mismatch. Only the original line, one per timestamp: transliteration is
+ * already computed locally by `transliterate()` for Cyrillic text, and
+ * translation is already filled in for any saved lyrics by `translateLyrics()`.
+ * Asking the model for those too and stuffing them into extra
+ * same-timestamp LRC lines used to corrupt playback — `parseLrc`/`toLyricLines`
+ * have no concept of an aside line, so each one became a real zero-duration
+ * lyric line, shouldering the actual lyric off screen the instant playback
+ * reached that timestamp.
+ */
+export function parseLrcLines(raw: string): LrcLine[] | null {
+  let value: unknown;
+  try {
+    value = extractJson(raw);
+  } catch {
+    return null;
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const linesRaw = (value as { lines?: unknown }).lines;
+  if (!Array.isArray(linesRaw)) return null;
+
+  const outLines: LrcLine[] = [];
+  for (const item of linesRaw) {
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    const ts = typeof obj.timestamp === 'string' ? obj.timestamp.trim() : '';
+    const original = typeof obj.original === 'string' ? obj.original.trim() : '';
+    if (!ts || !original) continue;
+    outLines.push({ timestamp: ts, original });
+  }
+  return outLines.length ? outLines : null;
 }
 
 /**
@@ -286,41 +318,18 @@ export async function generateLrc(
   const header = `Generate a synchronized LRC-style JSON for the song named "${song}"` +
     (artist ? ` by "${artist}"` : '') +
     `. Return ONLY a JSON object with a single key "lines" that is an array of objects.` +
-    ` Each object must have these exact keys: "timestamp" (format "MM:SS.xx"), "original" (the original lyric line),` +
-    ` "pronunciation" (Latin transliteration, if available, otherwise empty), "english" (English translation),` +
-    ` and "russian" (Russian translation in Cyrillic).` +
-    ` Ensure timestamps are plausible within the song duration (${Math.round(durationSec)} seconds).` +
-    ` Return strictly valid JSON and nothing else.`;
+    ` Each object must have exactly these keys: "timestamp" (format "MM:SS.xx") and` +
+    ` "original" (one line of the original lyric text, in its original script).` +
+    ` Ensure timestamps are plausible within the song duration (${Math.round(durationSec)} seconds)` +
+    ` and strictly increasing. Return strictly valid JSON and nothing else.`;
 
   const prompt = header + '\n\nProvide the JSON object now.';
 
   const raw = await generate(prompt, { json: true, temperature: 0.2 });
   if (raw === null) return null;
 
-  let value: unknown;
-  try {
-    value = extractJson(raw);
-  } catch (e) {
-    return null;
-  }
-
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const linesRaw = (value as { lines?: unknown }).lines;
-  if (!Array.isArray(linesRaw)) return null;
-
-  const outLines: LrcLine[] = [];
-  for (const item of linesRaw) {
-    if (!item || typeof item !== 'object') continue;
-    const obj = item as Record<string, unknown>;
-    const ts = typeof obj.timestamp === 'string' ? obj.timestamp.trim() : '';
-    const original = typeof obj.original === 'string' ? obj.original.trim() : '';
-    const pronunciation = typeof obj.pronunciation === 'string' ? obj.pronunciation.trim() : '';
-    const english = typeof obj.english === 'string' ? obj.english.trim() : '';
-    const russian = typeof obj.russian === 'string' ? obj.russian.trim() : '';
-    if (!ts || !original) continue;
-    outLines.push({ timestamp: ts, original, pronunciation, english, russian });
-  }
-  if (!outLines.length) return null;
+  const outLines = parseLrcLines(raw);
+  if (!outLines) return null;
 
   const lrc: string[] = [];
   lrc.push(`[ti:${song}]`);
@@ -329,11 +338,7 @@ export async function generateLrc(
   lrc.push('');
 
   for (const ln of outLines) {
-    const tag = `[${ln.timestamp}]`;
-    lrc.push(`${tag} ${ln.original}`);
-    if (ln.pronunciation) lrc.push(`${tag} [Pronunciation]: ${ln.pronunciation}`);
-    if (ln.english) lrc.push(`${tag} [EN]: ${ln.english}`);
-    if (ln.russian) lrc.push(`${tag} [RU]: ${ln.russian}`);
+    lrc.push(`[${ln.timestamp}] ${ln.original}`);
   }
 
   return lrc.join('\n');

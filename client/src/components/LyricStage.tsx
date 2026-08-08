@@ -137,11 +137,14 @@ export function LyricStage({ variant }: Props): JSX.Element {
                     className="btn"
                     onClick={async () => {
                       try {
-                        const res = await api.generateLrc({ song: track?.title || 'Unknown', artist: track?.artist || '', preview: true });
-                        // apply the generated sample immediately as pasted LRC
+                        const res = await api.generateLrc({
+                          song: track?.title || 'Unknown',
+                          artist: track?.artist || '',
+                          ...(track?.durationSec ? { durationSec: track.durationSec } : {}),
+                        });
                         await applyCustomLrc(res.lrc);
                       } catch (e) {
-                        // reuse retry as a fallback UI action
+                        useUi.getState().toast(t('generateFailed'), 'error');
                         void retry();
                       }
                     }}

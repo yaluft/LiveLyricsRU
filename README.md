@@ -62,7 +62,7 @@ This repository implements the **Лирика v2** design produced in
 
 ### Reading and learning
 
-- **Word-level sync.** Each word carries its own offset inside the line, so the active word lights up as it is sung.
+- **Word-level sync.** Each word carries its own offset inside the line. That offset is real sung-word timing when it's available — Musixmatch's richsync data, or an enhanced (word-tagged) LRC paste — and an even split across the line elsewhere, so the highlight still moves smoothly when only line-level timestamps exist.
 - **Pronunciation row.** A reading-aid romanisation (not GOST) that spells out iotated vowels: `Где свет никогда не гаснет` → `gdye svyet nikogda nye gasnyet`.
 - **Tap a word → definition.** Lemma-aware lookup (`гаснет` → `гаснуть`), part of speech, gloss, usage note. The card stays open while the song keeps playing.
 - **Speak it.** `▸ Озвучить` reads the word aloud through the Web Speech API with a `ru-RU` voice.
@@ -376,15 +376,17 @@ Stated plainly, because a demo that pretends is worse than one that admits.
 
 | Area | Status |
 | --- | --- |
-| Synced lyrics | **Real** — LRCLIB, parsed from LRC including multi-timestamp lines |
+| Synced lyrics | **Real** — LRCLIB, NetEase, then Musixmatch, parsed from LRC including multi-timestamp lines |
+| Word-level timing within a line | **Real** for Musixmatch tracks (its richsync data) and enhanced (word-tagged) LRC pastes; **an even split across the line** everywhere else, since plain LRC only carries a line-level timestamp |
 | Stream resolution | **Real** — `yt-dlp`, with host allowlisting |
 | Romanisation | **Real** — every line and word, computed from the text |
-| Word definitions | **Real lookup, bundled glossary.** ~70 lemmas with inflected forms; unknown words return a romanisation-only card |
+| Word definitions | **Real lookup** — bundled glossary first (~70 lemmas with inflected forms), then Gemini (if configured), then keyless Wiktionary; a word found nowhere returns a romanisation-only card |
 | Playback, loops, speed, queue, vocabulary, clips | **Real** |
 | Demo catalogue lyrics | **Original demo text**, not the published lyrics of the songs they are attached to. Real lyrics only ever come from the configured sources at runtime |
 | Artist bio, top countries, discography | **Sample data**, flagged `estimated: true` and labelled in the UI |
 | Clip feed | **Local only** — your clips persist to disk; other authors are seed data |
-| AI lyric assistant | **Simulated** — the route and the UI path are real, no transcription model is wired up. Every response is flagged `simulated: true` |
+| AI lyric assistant ("Create") | **Simulated** — the route and the UI path are real, no transcription model is wired up. Every response is flagged `simulated: true` |
+| AI-generated LRC ("Generate") | **Real Gemini call**, but the text and timestamps are the model's best guess, not derived from the audio — expect wrong lyrics and/or timing, especially for less well-known songs |
 | Listening session | **Local only** — the room code generates, cross-device sync is not implemented |
 | MP4 clip export | **Not implemented** — the button says so |
 

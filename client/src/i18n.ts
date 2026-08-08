@@ -45,6 +45,11 @@ export const STRINGS = {
     'No lyrics? The AI assistant drafts and time-aligns them from a link or a title.',
   ],
   create: ['Создать', 'Create'],
+  generate: ['Сгенерировать (ИИ)', 'Generate (AI)'],
+  generateFailed: [
+    'Не удалось сгенерировать текст. Показываем обычный поиск текста.',
+    "Couldn't generate lyrics. Falling back to the regular lyrics search.",
+  ],
   pasteLrc: ['Вставить LRC', 'Paste LRC'],
   pasteLrcPlaceholder: [
     'Вставьте LRC (со строками вида [00:12.34] …) или простой текст',

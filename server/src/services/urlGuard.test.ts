@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { checkMediaUrl, looksLikeUrl } from './urlGuard.js';
-import { parseLrc } from '../lib/lrc.js';
+import { parseLrc, toLyricLines } from '../lib/lrc.js';
 import { transliterate } from '../lib/transliterate.js';
 
 test('accepts YouTube hosts', () => {
@@ -48,6 +48,41 @@ test('parses LRC timestamps including multi-stamp lines', () => {
   assert.equal(parsed[0]?.time, 12.5);
   assert.equal(parsed[1]?.text, 'Где свет');
   assert.equal(parsed[2]?.time, 62.25);
+});
+
+test('parseLrc strips enhanced-LRC word tags out of the displayed text', () => {
+  const parsed = parseLrc('[00:12.34]<00:12.34>Привет <00:12.80>мир <00:13.20>это <00:13.50>песня');
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0]?.text, 'Привет мир это песня');
+  assert.deepEqual(
+    parsed[0]?.wordOffsets?.map((o) => Number(o.toFixed(2))),
+    [0, 0.46, 0.86, 1.16],
+  );
+});
+
+test('parseLrc leaves plain (untagged) lines exactly as before', () => {
+  const parsed = parseLrc('[00:12.50] Тихую песню про небо');
+  assert.equal(parsed[0]?.text, 'Тихую песню про небо');
+  assert.equal(parsed[0]?.wordOffsets, undefined);
+});
+
+test('toLyricLines uses real word offsets from enhanced-LRC tags', () => {
+  const parsed = parseLrc('[00:12.34]<00:12.34>Привет <00:12.80>мир <00:13.20>это <00:13.50>песня');
+  const lines = toLyricLines(parsed, 240);
+  assert.equal(lines[0]?.words.length, 4);
+  assert.deepEqual(
+    lines[0]?.words.map((w) => Number(w.offset?.toFixed(2))),
+    [0, 0.46, 0.86, 1.16],
+  );
+});
+
+test('toLyricLines falls back to an even split when the tag count does not match the tokenizer', () => {
+  // one tag covering a two-word span: tag count (1) != tokenizer word count (2)
+  const parsed = parseLrc('[00:00.00]<00:00.00>Тихую песню');
+  const lines = toLyricLines(parsed, 240);
+  assert.equal(lines[0]?.words.length, 2);
+  assert.equal(lines[0]?.words[0]?.offset, 0);
+  assert.ok((lines[0]?.words[1]?.offset ?? 0) > 0);
 });
 
 test('transliterates iotated vowels the way the design shows them', () => {

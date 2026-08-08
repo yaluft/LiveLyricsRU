@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   extractJson,
   parseGeneratedLines,
+  parseLrcLines,
   parseTranslations,
   parseWordSense,
 } from './gemini.js';
@@ -94,4 +95,28 @@ test('parseWordSense requires a gloss', () => {
 test('parseWordSense rejects a non-object reply', () => {
   assert.equal(parseWordSense('["house"]'), null);
   assert.equal(parseWordSense('nonsense'), null);
+});
+
+test('parseLrcLines reads timestamp/original pairs, dropping any other keys', () => {
+  const raw =
+    '{"lines":[' +
+    '{"timestamp":"00:12.50","original":"Строка один","pronunciation":"ignored","english":"ignored"},' +
+    '{"timestamp":"00:18.00","original":"Строка два"}' +
+    ']}';
+  assert.deepEqual(parseLrcLines(raw), [
+    { timestamp: '00:12.50', original: 'Строка один' },
+    { timestamp: '00:18.00', original: 'Строка два' },
+  ]);
+});
+
+test('parseLrcLines skips items missing a timestamp or original', () => {
+  const raw =
+    '{"lines":[{"timestamp":"00:12.50"},{"original":"orphan"},{"timestamp":"00:18.00","original":"ок"}]}';
+  assert.deepEqual(parseLrcLines(raw), [{ timestamp: '00:18.00', original: 'ок' }]);
+});
+
+test('parseLrcLines returns null when nothing usable is present', () => {
+  assert.equal(parseLrcLines('{"lines":[]}'), null);
+  assert.equal(parseLrcLines('{"lines":"not an array"}'), null);
+  assert.equal(parseLrcLines('garbage'), null);
 });

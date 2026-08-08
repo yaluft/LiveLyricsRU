@@ -1,6 +1,7 @@
-import type { Lyrics, Track } from '@lyrika/shared';
+import type { Lyrics, LyricLine, LyricWord, Track } from '@lyrika/shared';
 import { config } from '../config.js';
 import { parseLrc, plainToLyricLines, toLyricLines } from '../lib/lrc.js';
+import { splitWords, transliterate } from '../lib/transliterate.js';
 
 /**
  * Musixmatch's unofficial desktop-app API — the widest synced-lyrics database,
@@ -61,6 +62,102 @@ export function extractPlainLyrics(json: unknown): string | null {
   return typeof body === 'string' && body.trim() ? body : null;
 }
 
+/**
+ * Pulls the word-level "richsync" payload out of a macro.subtitles.get response
+ * (present only when the request adds `optional_calls=track.richsync` and the
+ * track has richsync data). `richsync_body` is itself a JSON string — an array
+ * of `{ ts, te, x, l: [{ c, o }] }` lines, where `ts`/`te` are the line's
+ * absolute start/end in seconds, `x` is the full line text, and each `l` entry
+ * is a word chunk `c` with `o`, its offset in seconds from `ts`. Real per-word
+ * timing, unlike the even-split guess `toLyricLines` falls back to.
+ */
+export function extractRichsync(json: unknown): unknown[] | null {
+  const body = pick(json, [
+    'message', 'body', 'macro_calls', 'track.richsync.get',
+    'message', 'body', 'richsync', 'richsync_body',
+  ]);
+  if (typeof body !== 'string' || !body.trim()) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed) || !parsed.length) return null;
+  return parsed as unknown[];
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Converts richsync entries into the app's line model using real sung timing.
+ * Word offsets come straight from richsync's `l` chunks when their count lines
+ * up 1:1 with our own tokenizer; otherwise that one line falls back to the
+ * even-split guess so a chunk-grouping mismatch can't misalign the highlight
+ * (and tap-to-define still sees single clean words either way).
+ */
+export function richsyncToLyricLines(entries: unknown[], totalDurationSec: number): LyricLine[] {
+  const parsed = entries
+    .map((item) => (item && typeof item === 'object' ? (item as Record<string, unknown>) : null))
+    .filter((item): item is Record<string, unknown> => item !== null)
+    .map((obj) => ({ obj, time: toFiniteNumber(obj.ts) }))
+    .filter((e): e is { obj: Record<string, unknown>; time: number } => e.time !== null)
+    .sort((a, b) => a.time - b.time);
+
+  const lines: LyricLine[] = [];
+  parsed.forEach(({ obj, time }, i) => {
+    const text = typeof obj.x === 'string' ? obj.x.trim() : '';
+    if (!text) return;
+
+    const next = parsed[i + 1];
+    const teRaw = toFiniteNumber(obj.te);
+    const end =
+      teRaw !== null && teRaw > time
+        ? teRaw
+        : next && next.time > time
+          ? next.time
+          : Math.max(time + 4, totalDurationSec);
+
+    const chunks = Array.isArray(obj.l) ? (obj.l as unknown[]) : [];
+    const timedChunks: { offset: number }[] = [];
+    for (const chunk of chunks) {
+      if (!chunk || typeof chunk !== 'object') continue;
+      const c = (chunk as Record<string, unknown>).c;
+      if (typeof c !== 'string' || !c.trim()) continue; // pure-whitespace separator
+      const offset = toFiniteNumber((chunk as Record<string, unknown>).o);
+      timedChunks.push({ offset: offset !== null ? Math.max(offset, 0) : 0 });
+    }
+
+    const tokens = splitWords(text);
+    const words: LyricWord[] =
+      tokens.length && tokens.length === timedChunks.length
+        ? tokens.map((tok, wi) => ({
+            text: tok.text,
+            translit: transliterate(tok.text),
+            offset: timedChunks[wi]?.offset ?? 0,
+          }))
+        : tokens.map((tok, wi) => ({
+            text: tok.text,
+            translit: transliterate(tok.text),
+            offset: tokens.length > 1 ? ((end - time) * wi) / tokens.length : 0,
+          }));
+
+    lines.push({
+      id: `l${lines.length}`,
+      time,
+      end,
+      text,
+      translit: transliterate(text),
+      translation: '',
+      words,
+    });
+  });
+  return lines;
+}
+
 const CYRILLIC_RE = /[Ѐ-ӿ]/;
 
 /** A Cyrillic track whose lyrics come back in Latin is the wrong match. */
@@ -108,6 +205,7 @@ export async function fetchLyrics(track: Track): Promise<Lyrics | null> {
     format: 'json',
     namespace: 'lyrics_richsynched',
     subtitle_format: 'lrc',
+    optional_calls: 'track.richsync',
     app_id: APP_ID,
     usertoken: token,
     q_track: track.title,
@@ -117,6 +215,20 @@ export async function fetchLyrics(track: Track): Promise<Lyrics | null> {
 
   const json = await getJson('/ws/1.1/macro.subtitles.get', params).catch(() => null);
   if (!json) return null;
+
+  const richsync = extractRichsync(json);
+  if (richsync) {
+    const lines = richsyncToLyricLines(richsync, track.durationSec || 240);
+    if (lines.length && !scriptMismatch(lines.map((l) => l.text).join(' '), track)) {
+      return {
+        trackId: track.id,
+        kind: 'synced',
+        source: 'musixmatch',
+        sourceLabel: 'Musixmatch (по словам)',
+        lines,
+      };
+    }
+  }
 
   const lrc = extractSubtitle(json);
   if (lrc && !scriptMismatch(lrc, track)) {
